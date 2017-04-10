@@ -1,19 +1,21 @@
-from rllab.algos.trpo import TRPO
+from sandbox.rocky.tf.algos.trpo import TRPO
 from rllab.baselines.linear_feature_baseline import LinearFeatureBaseline
 from rllab.envs.gym_env import GymEnv
 from rllab.envs.normalized_env import normalize
 from rllab.misc.instrument import run_experiment_lite
-from rllab.policies.gaussian_mlp_policy import GaussianMLPPolicy
+from sandbox.rocky.tf.policies.gaussian_mlp_policy import GaussianMLPPolicy
 
 
 def run_task(*_):
-    env = normalize(GymEnv("Pendulum-v0"))
+    env = normalize(GymEnv("Walker2d-v1"))
 
     policy = GaussianMLPPolicy(
+        name="Walker2d",
         env_spec=env.spec,
         # The neural network policy should have two hidden layers, each with 32 hidden units.
         hidden_sizes=(8, 8)
     )
+    # FIXME(cathywu) Doesn't run because GaussianMLP requires a box action space
 
     baseline = LinearFeatureBaseline(env_spec=env.spec)
 
