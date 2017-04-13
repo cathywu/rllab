@@ -82,7 +82,7 @@ class NPOAction(BatchPolopt):
             dist_info_vars = self.policy.dist_info_sym(obs_var,
                                                        state_info_varss[k])
             # TODO(cathywu) split into k 1-by-1 Diagonal covariance matrix
-            kls[k] = dist1.kl_sym(old_dist_info_varss[k], dist_info_vars)
+            kls[k] = dist1.kl_sym(old_dist_info_varss[k], dist_info_vars, idx=k)
             print("CATHYWU lrs", action_vars[k], old_dist_info_varss[k], dist_info_vars)
             lrs[k] = dist1.likelihood_ratio_sym(action_vars[k],
                                               old_dist_info_varss[k],
@@ -90,9 +90,13 @@ class NPOAction(BatchPolopt):
 
         # FIXME(cathywu) incomplete
         k = 0
+        # FIXME(cathywu) review TRPO to see how to properly compute kl term
         mean_kl = tf.reduce_mean(kls[k])
         # TODO(cathywu) product between adv and ratio of likelihoods
-        surr_loss = - tf.reduce_mean(lrs[k] * advantage_vars[k])
+        # surr_loss = - tf.reduce_mean(lr * advantage_var)
+
+        surr_loss = - tf.reduce_mean(tf.add_n([lrs[k] * advantage_vars[k]
+                        for k in range(self.nactions)]))
 
         input_list = ext.flatten_list([
                          obs_var,
@@ -108,6 +112,15 @@ class NPOAction(BatchPolopt):
             inputs=input_list,
             constraint_name="mean_kl"
         )
+
+        # TODO(cathywu) remove
+        self.lrs = lrs
+        self.advantage_vars = advantage_vars
+        self.input_list = input_list
+        self.dist1 = dist1
+        self.action_vars = action_vars
+        self.mean_kl = mean_kl
+
         return dict()
 
     @overrides
@@ -123,9 +136,62 @@ class NPOAction(BatchPolopt):
                                                       expand_dims=True)
                                            for k in
                           self.policy.distribution.dist_info_keys])
-        # print("CATHYWU state info list", state_info_list)
-        # print("CATHYWU dist info list", dist_info_list)
+        print("CATHYWU state info list", state_info_list)
+        print("CATHYWU dist info list", dist_info_list)
         all_input_values += tuple(state_info_list) + tuple(dist_info_list)
+
+        # TODO(cathywu) debug
+        temp = tensor_utils.compile_function(self.input_list,
+                                             self.advantage_vars)
+        adv = temp(*all_input_values)
+        print("CATHYWU adv", temp(*all_input_values))
+
+        temp = tensor_utils.compile_function(self.input_list,
+                                             self.lrs)
+        lrs = temp(*all_input_values)
+        print("CATHYWU lrs", temp(*all_input_values))
+        temp = tensor_utils.compile_function(self.input_list,
+                                             self.dist1.logli_new)
+        logli_new = temp(*all_input_values)
+        print("CATHYWU logli_new", temp(*all_input_values))
+        temp = tensor_utils.compile_function(self.input_list,
+                                             self.dist1.logli_old)
+        logli_old = temp(*all_input_values)
+        print("CATHYWU logli_old", temp(*all_input_values))
+        temp = tensor_utils.compile_function(self.input_list,
+                                             self.dist1.new_dist_info_vars[
+                                                 "mean"])
+        logli_new_mean = temp(*all_input_values)
+        print("CATHYWU new means", temp(*all_input_values))
+        temp = tensor_utils.compile_function(self.input_list,
+                                             self.dist1.new_dist_info_vars[
+                                                 "log_std"])
+        logli_new_log_std = temp(*all_input_values)
+        print("CATHYWU new log_std", temp(*all_input_values))
+        temp = tensor_utils.compile_function(self.input_list,
+                                             self.dist1.old_dist_info_vars[
+                                                 "mean"])
+        logli_old_means = temp(*all_input_values)
+        print("CATHYWU old means", temp(*all_input_values))
+        temp = tensor_utils.compile_function(self.input_list,
+                                             self.dist1.old_dist_info_vars[
+                                                 "log_std"])
+        logli_old_log_std = temp(*all_input_values)
+        print("CATHYWU old log_stds", temp(*all_input_values))
+        temp = tensor_utils.compile_function(self.input_list,
+                                             self.action_vars)
+        action_vars = temp(*all_input_values)
+        print("CATHYWU action_vars", temp(*all_input_values))
+        temp = tensor_utils.compile_function(self.input_list,
+                                             self.mean_kl)
+        mean_kl = temp(*all_input_values)
+        print("CATHYWU mean_kl", temp(*all_input_values))
+        # FIXME(cathywu) first 3 actions have large loss and large lrs
+        print("CATHYWU loss terms", [sum(lrs[k] * adv[k]) for k in range(
+            self.nactions)])
+        # import ipdb
+        # ipdb.set_trace()
+
         logger.log("Computing loss before")
         # print("CATHYWU just before error", all_input_values)
         # print("CATHYWU sizes", [x.shape for x in all_input_values])

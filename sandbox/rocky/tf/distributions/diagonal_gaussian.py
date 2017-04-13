@@ -39,11 +39,19 @@ class DiagonalGaussian(Distribution):
         # return TT.sum(
         #     numerator / denominator + TT.log(new_std) - TT.log(old_std ), axis=-1)
 
-    def kl_sym(self, old_dist_info_vars, new_dist_info_vars):
-        old_means = old_dist_info_vars["mean"]
-        old_log_stds = old_dist_info_vars["log_std"]
-        new_means = new_dist_info_vars["mean"]
-        new_log_stds = new_dist_info_vars["log_std"]
+    def kl_sym(self, old_dist_info_vars, new_dist_info_vars, idx=None):
+        if idx is not None:
+            old_means = tf.expand_dims(old_dist_info_vars["mean"], axis=1)
+            old_log_stds = tf.expand_dims(old_dist_info_vars["log_std"], axis=1)
+            new_means = tf.expand_dims(new_dist_info_vars["mean"][:, idx],
+                                       axis=1)
+            new_log_stds = tf.expand_dims(new_dist_info_vars["log_std"][:,
+                                          idx], axis=1)
+        else:
+            old_means = old_dist_info_vars["mean"]
+            old_log_stds = old_dist_info_vars["log_std"]
+            new_means = new_dist_info_vars["mean"]
+            new_log_stds = new_dist_info_vars["log_std"]
         """
         Compute the KL divergence of two multivariate Gaussian distribution with
         diagonal covariance matrices
@@ -55,6 +63,7 @@ class DiagonalGaussian(Distribution):
         # formula:
         # { (\mu_1 - \mu_2)^2 + \sigma_1^2 - \sigma_2^2 } / (2\sigma_2^2) +
         # ln(\sigma_2/\sigma_1)
+        # TODO(cathywu) Why is there no dimensionality problem here?
         numerator = tf.square(old_means - new_means) + \
                     tf.square(old_std) - tf.square(new_std)
         denominator = 2 * tf.square(new_std) + 1e-8
@@ -63,17 +72,27 @@ class DiagonalGaussian(Distribution):
 
     def likelihood_ratio_sym(self, x_var, old_dist_info_vars,
                              new_dist_info_vars, idx=None):
+        self.new_dist_info_vars = new_dist_info_vars
+        self.old_dist_info_vars = old_dist_info_vars
         logli_new = self.log_likelihood_sym(x_var, new_dist_info_vars, idx=idx)
         logli_old = self.log_likelihood_sym(x_var, old_dist_info_vars)
+        self.logli_new = logli_new
+        self.logli_old = logli_old
         return tf.exp(logli_new - logli_old)
 
     def log_likelihood_sym(self, x_var, dist_info_vars, idx=None):
-        means = dist_info_vars["mean"]
-        log_stds = dist_info_vars["log_std"]
-        if idx is None:
-            zs = (x_var - means) / tf.exp(log_stds)
+        if idx is not None:
+            x_var = tf.expand_dims(x_var, axis=1)
+            means = tf.expand_dims(dist_info_vars["mean"][:, idx], axis=1)
+            log_stds = tf.expand_dims(dist_info_vars["log_std"][:, idx], axis=1)
+            self.means = means
+            self.log_stds = log_stds
         else:
-            zs = (x_var - means[:, idx]) / tf.exp(log_stds[:, idx])
+            # FIXME(cathywu) remove and fix this on the outside
+            x_var = tf.expand_dims(x_var, axis=1)
+            means = dist_info_vars["mean"]
+            log_stds = dist_info_vars["log_std"]
+        zs = (x_var - means) / tf.exp(log_stds)
         return - tf.reduce_sum(log_stds, axis=-1) - \
                0.5 * tf.reduce_sum(tf.square(zs), axis=-1) - \
                0.5 * self.dim * np.log(2 * np.pi)
