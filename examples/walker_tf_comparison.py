@@ -14,7 +14,8 @@ from rllab.misc.instrument import stub, run_experiment_lite
 # algo = "VPG"
 algo = "TRPO"
 
-exp_prefix = "Walker2d-comparison"
+# exp_prefix = "Walker2d-comparison"
+exp_prefix = "debug-policy-factorization"
 
 stub(globals())
 

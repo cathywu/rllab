@@ -69,7 +69,8 @@ class DiagonalGaussian(Distribution):
     def log_likelihood_sym(self, x_var, dist_info_vars):
         means = dist_info_vars["mean"]
         log_stds = dist_info_vars["log_std"]
-        zs = (x_var - means) / tf.exp(log_stds)
+        # FIXME(cathywu) temporary hack to see if dimensions work out
+        zs = (x_var - means[:,0]) / tf.exp(log_stds[:,0])
         return - tf.reduce_sum(log_stds, axis=-1) - \
                0.5 * tf.reduce_sum(tf.square(zs), axis=-1) - \
                0.5 * self.dim * np.log(2 * np.pi)

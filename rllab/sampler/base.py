@@ -49,6 +49,7 @@ class BaseSampler(Sampler):
         baselines = []
         returns = []
 
+        # TODO(cathywu) For loop start (for k baselines)
         if hasattr(self.algo.baseline, "predict_n"):
             all_path_baselines = self.algo.baseline.predict_n(paths)
         else:
@@ -59,12 +60,20 @@ class BaseSampler(Sampler):
             deltas = path["rewards"] + \
                      self.algo.discount * path_baselines[1:] - \
                      path_baselines[:-1]
-            path["advantages"] = special.discount_cumsum(
-                deltas, self.algo.discount * self.algo.gae_lambda)
+            # TODO(cathywu) what do the last 2 terms mean?
+            # TODO(cathywu) there's another baseline computation below,
+            # 1-step bellman error / TD error
+            # what is this one?
+            # FIXME(cathywu) compute the advantages properly
+            path["advantages"] = np.tile(special.discount_cumsum(
+                deltas, self.algo.discount * self.algo.gae_lambda),
+                    [6,1]).T
             path["returns"] = special.discount_cumsum(path["rewards"], self.algo.discount)
             baselines.append(path_baselines[:-1])
             returns.append(path["returns"])
+        # TODO(cathywu) For loop end (for k baselines)
 
+        # TODO(cathywu) Have k copies of this (for logging)
         ev = special.explained_variance_1d(
             np.concatenate(baselines),
             np.concatenate(returns)
@@ -161,6 +170,7 @@ class BaseSampler(Sampler):
             )
 
         logger.log("fitting baseline...")
+        # TODO(cathywu) for loop here for the k baselines
         if hasattr(self.algo.baseline, 'fit_with_samples'):
             self.algo.baseline.fit_with_samples(paths, samples_data)
         else:
