@@ -86,7 +86,7 @@ class NPOAction(BatchPolopt):
             print("CATHYWU lrs", action_vars[k], old_dist_info_varss[k], dist_info_vars)
             lrs[k] = dist1.likelihood_ratio_sym(action_vars[k],
                                               old_dist_info_varss[k],
-                                           dist_info_vars)
+                                           dist_info_vars, idx=k)
 
         # FIXME(cathywu) incomplete
         k = 0
