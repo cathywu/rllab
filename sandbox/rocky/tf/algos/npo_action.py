@@ -53,33 +53,27 @@ class NPOAction(BatchPolopt):
         ) for _ in range(self.nactions)]
         dist = self.policy.distribution
 
-        print("CATHYWU", dist.dist_info_specs, self.policy.state_info_specs)
-
         # Convention: shape [?, nactions]
         old_dist_info_vars = {
             k: tf.placeholder(tf.float32, shape=[None] * (1) + list(shape),
                               name='old_%s' % k) for k, shape in
             dist.dist_info_specs
         }
-        print("CATHYWU old dist info vars", old_dist_info_vars)
-        old_dist_info_vars_list = [old_dist_info_vars[k] for
-                                   k in dist.dist_info_keys]
+        old_dist_info_vars_list = [old_dist_info_vars[k] for k in dist.dist_info_keys]
 
-        # TODO(cathywu) this may need to be reverted, doesn't seem to be used
-        #  right now so not causing issues
-        state_info_varss = [{
+        state_info_vars = {
             k: tf.placeholder(tf.float32, shape=[None] * (1) + list(shape), name=k)
             for k, shape in self.policy.state_info_specs
-            } for _ in range(self.nactions)]
-        print("CATHYWU state info vars", state_info_varss)
-        state_info_vars_list = [state_info_vars[k] for state_info_vars
-                                in state_info_varss for k in
-                                self.policy.state_info_keys]
+            }
+        state_info_vars_list = [state_info_vars[k] for k in self.policy.state_info_keys]
 
         # TODO(cathywu) Can I just create dist1 ad hoc like this?
         dist1 = DiagonalGaussian(1)
 
-        # TODO(cathywu) remove
+        # TODO(cathywu) remove debug statements
+        print("CATHYWU", dist.dist_info_specs, self.policy.state_info_specs)
+        print("CATHYWU old dist info vars", old_dist_info_vars)
+        print("CATHYWU state info vars", state_info_vars)
         self.dist1 = dist1
         self.dist1.means = [0 for _ in range(self.nactions)]
         self.dist1.log_stds = [0 for _ in range(self.nactions)]
@@ -91,10 +85,9 @@ class NPOAction(BatchPolopt):
 
         lrs = [0 for _ in range(self.nactions)]
         kls = [0 for _ in range(self.nactions)]
+        print("CATHYWU policy", self.policy)
+        dist_info_vars = self.policy.dist_info_sym(obs_var, state_info_vars)
         for k in range(self.nactions):
-            print("CATHYWU policy", self.policy)
-            dist_info_vars = self.policy.dist_info_sym(obs_var,
-                                                       state_info_varss[k])
             # TODO(cathywu) split into k 1-by-1 Diagonal covariance matrix
             # TODO(cathywu) shape?
             kls[k] = dist1.kl_sym(old_dist_info_vars, dist_info_vars, idx=k)
@@ -105,17 +98,15 @@ class NPOAction(BatchPolopt):
                                                 old_dist_info_vars,
                                                 dist_info_vars, idx=k), axis=1)
 
-        # FIXME(cathywu) incomplete
-        k = 0
         # FIXME(cathywu) review TRPO to see how to properly compute kl term
+        k = 0
         mean_kl = tf.reduce_mean(kls[k])
         # TODO(cathywu) product between adv and ratio of likelihoods
-        # surr_loss = - tf.reduce_mean(lr * advantage_var)
-
         loss_vec = tf.add_n([lrs[k] * advantage_vars[k]
                                                for k in range(self.nactions)])
         self.loss_vec = loss_vec
-        surr_loss = - tf.reduce_mean(loss_vec)
+        # surr_loss = - tf.reduce_mean(loss_vec)
+        surr_loss = - tf.reduce_mean(lrs[0] * advantage_vars[0])
 
         input_list = ext.flatten_list([
                          obs_var,
@@ -151,10 +142,6 @@ class NPOAction(BatchPolopt):
         )))
         agent_infos = samples_data["agent_infos"]
         state_info_list = [agent_infos[k] for k in self.policy.state_info_keys]
-        # dist_info_list = ext.flatten_list([ext.single(agent_infos[k],
-        #                                               expand_dims=True)
-        #                                    for k in
-        #                   self.policy.distribution.dist_info_keys])
         dist_info_list = [agent_infos[k] for k in
                           self.policy.distribution.dist_info_keys]
         print("CATHYWU state info list", state_info_list)
@@ -214,17 +201,20 @@ class NPOAction(BatchPolopt):
         temp = tensor_utils.compile_function(self.input_list,
                                              self.surr_loss)
         surr_loss = temp(*all_input_values)
-        print("cathywu surr_loss", temp(*all_input_values))
+        print("cathywu surr_loss", surr_loss)
+
         temp = tensor_utils.compile_function(self.input_list,
                                              self.loss_vec)
         loss_vec = temp(*all_input_values)
-        print("cathywu loss_vec", temp(*all_input_values))
-        # fixme(cathywu) first 3 actions have large loss and large lrs
+        print("cathywu loss_vec", loss_vec)
+
         import numpy as np
         partial_loss_manual = np.sum([lrs[k] * adv[k] for k in range(
             self.nactions)], axis=0)
         print("cathywu loss terms", partial_loss_manual)
-        print("cathywu loss", np.mean(partial_loss_manual))
+        print("cathywu loss", -np.mean(partial_loss_manual))
+        print("cathywu mean loss_vec", -np.mean(loss_vec))
+        # FIXME(cathywu) ASK ROCKY manually computed loss and surr_loss disagree
         # import ipdb
         # ipdb.set_trace()
 

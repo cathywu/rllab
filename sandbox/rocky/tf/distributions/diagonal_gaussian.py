@@ -41,8 +41,10 @@ class DiagonalGaussian(Distribution):
 
     def kl_sym(self, old_dist_info_vars, new_dist_info_vars, idx=None):
         if idx is not None:
-            old_means = tf.expand_dims(old_dist_info_vars["mean"], axis=1)
-            old_log_stds = tf.expand_dims(old_dist_info_vars["log_std"], axis=1)
+            old_means = tf.expand_dims(old_dist_info_vars["mean"][:, idx],
+                                       axis=1)
+            old_log_stds = tf.expand_dims(old_dist_info_vars["log_std"][:,
+                                          idx], axis=1)
             new_means = tf.expand_dims(new_dist_info_vars["mean"][:, idx],
                                        axis=1)
             new_log_stds = tf.expand_dims(new_dist_info_vars["log_std"][:,
@@ -72,12 +74,15 @@ class DiagonalGaussian(Distribution):
 
     def likelihood_ratio_sym(self, x_var, old_dist_info_vars,
                              new_dist_info_vars, idx=None):
-        self.new_dist_info_vars[idx] = new_dist_info_vars
-        self.old_dist_info_vars[idx] = old_dist_info_vars
         logli_new = self.log_likelihood_sym(x_var, new_dist_info_vars, idx=idx)
         logli_old = self.log_likelihood_sym(x_var, old_dist_info_vars, idx=idx)
+
+        # TODO(cathywu) remove
+        self.new_dist_info_vars[idx] = new_dist_info_vars
+        self.old_dist_info_vars[idx] = old_dist_info_vars
         self.logli_new[idx] = logli_new
         self.logli_old[idx] = logli_old
+
         return tf.exp(logli_new - logli_old)
 
     def log_likelihood_sym(self, x_var, dist_info_vars, idx=None):
