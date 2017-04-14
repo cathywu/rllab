@@ -25,8 +25,10 @@ def unflatten_tensor_variables(flatarr, shapes, symb_arrs):
     return arrs
 
 
-def new_tensor(name, ndim, dtype):
-    return tf.placeholder(dtype=dtype, shape=[None] * ndim, name=name)
+def new_tensor(name, ndim, dtype, size=None):
+    return tf.placeholder(dtype=dtype,
+                          shape=[None] * ndim + ([] if size is None else
+                                                 [size]), name=name)
 
 
 def new_tensor_like(name, arr_like):

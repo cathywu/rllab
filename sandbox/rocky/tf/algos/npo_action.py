@@ -39,31 +39,34 @@ class NPOAction(BatchPolopt):
             'obs',
             extra_dims=1,
         )
-        action_vars = [self.env.action_space.new_tensor_variable(
+        # Convention: shape [?, 1]
+        action_var = self.env.action_space.new_tensor_variable(
             'action',
             extra_dims=1,
-            size=False,
-        ) for _ in range(self.nactions)]
+        )
+        # Convention: shape [?, 1]
         advantage_vars = [tensor_utils.new_tensor(
             'advantage',
             ndim=1,
             dtype=tf.float32,
+            size=1,
         ) for _ in range(self.nactions)]
         dist = self.policy.distribution
 
         print("CATHYWU", dist.dist_info_specs, self.policy.state_info_specs)
 
-        dist1 = DiagonalGaussian(1)
-        old_dist_info_varss = [{
+        # Convention: shape [?, nactions]
+        old_dist_info_vars = {
             k: tf.placeholder(tf.float32, shape=[None] * (1) + list(shape),
-                              name='old_%s_%s' % (k,j))
-            for k, shape in dist1.dist_info_specs
-            } for j in range(self.nactions)]
-        print("CATHYWU old dist info vars", old_dist_info_varss)
+                              name='old_%s' % k) for k, shape in
+            dist.dist_info_specs
+        }
+        print("CATHYWU old dist info vars", old_dist_info_vars)
         old_dist_info_vars_list = [old_dist_info_vars[k] for
-                                   old_dist_info_vars in old_dist_info_varss
-                                   for k in dist1.dist_info_keys]
+                                   k in dist.dist_info_keys]
 
+        # TODO(cathywu) this may need to be reverted, doesn't seem to be used
+        #  right now so not causing issues
         state_info_varss = [{
             k: tf.placeholder(tf.float32, shape=[None] * (1) + list(shape), name=k)
             for k, shape in self.policy.state_info_specs
@@ -73,8 +76,19 @@ class NPOAction(BatchPolopt):
                                 in state_info_varss for k in
                                 self.policy.state_info_keys]
 
-        dist1 = DiagonalGaussian(1)
         # TODO(cathywu) Can I just create dist1 ad hoc like this?
+        dist1 = DiagonalGaussian(1)
+
+        # TODO(cathywu) remove
+        self.dist1 = dist1
+        self.dist1.means = [0 for _ in range(self.nactions)]
+        self.dist1.log_stds = [0 for _ in range(self.nactions)]
+        self.dist1.zs = [0 for _ in range(self.nactions)]
+        self.dist1.logli_new = [0 for _ in range(self.nactions)]
+        self.dist1.logli_old = [0 for _ in range(self.nactions)]
+        self.dist1.new_dist_info_vars = [0 for _ in range(self.nactions)]
+        self.dist1.old_dist_info_vars = [0 for _ in range(self.nactions)]
+
         lrs = [0 for _ in range(self.nactions)]
         kls = [0 for _ in range(self.nactions)]
         for k in range(self.nactions):
@@ -82,11 +96,14 @@ class NPOAction(BatchPolopt):
             dist_info_vars = self.policy.dist_info_sym(obs_var,
                                                        state_info_varss[k])
             # TODO(cathywu) split into k 1-by-1 Diagonal covariance matrix
-            kls[k] = dist1.kl_sym(old_dist_info_varss[k], dist_info_vars, idx=k)
-            print("CATHYWU lrs", action_vars[k], old_dist_info_varss[k], dist_info_vars)
-            lrs[k] = dist1.likelihood_ratio_sym(action_vars[k],
-                                              old_dist_info_varss[k],
-                                           dist_info_vars, idx=k)
+            # TODO(cathywu) shape?
+            kls[k] = dist1.kl_sym(old_dist_info_vars, dist_info_vars, idx=k)
+            print(
+            "CATHYWU lrs", action_var, old_dist_info_vars, dist_info_vars)
+            # Convention: shape [?, 1]
+            lrs[k] = tf.expand_dims(dist1.likelihood_ratio_sym(action_var,
+                                                old_dist_info_vars,
+                                                dist_info_vars, idx=k), axis=1)
 
         # FIXME(cathywu) incomplete
         k = 0
@@ -95,12 +112,14 @@ class NPOAction(BatchPolopt):
         # TODO(cathywu) product between adv and ratio of likelihoods
         # surr_loss = - tf.reduce_mean(lr * advantage_var)
 
-        surr_loss = - tf.reduce_mean(tf.add_n([lrs[k] * advantage_vars[k]
-                        for k in range(self.nactions)]))
+        loss_vec = tf.add_n([lrs[k] * advantage_vars[k]
+                                               for k in range(self.nactions)])
+        self.loss_vec = loss_vec
+        surr_loss = - tf.reduce_mean(loss_vec)
 
         input_list = ext.flatten_list([
                          obs_var,
-                         action_vars,
+                         action_var,
                          advantage_vars,
                      ] + state_info_vars_list + old_dist_info_vars_list)
         print("CATHYWU input_list", input_list)
@@ -117,9 +136,9 @@ class NPOAction(BatchPolopt):
         self.lrs = lrs
         self.advantage_vars = advantage_vars
         self.input_list = input_list
-        self.dist1 = dist1
-        self.action_vars = action_vars
+        self.action_var = action_var
         self.mean_kl = mean_kl
+        self.surr_loss = surr_loss
 
         return dict()
 
@@ -128,14 +147,16 @@ class NPOAction(BatchPolopt):
         # TODO(cathywu) need to compute nactions x advantages
         all_input_values = tuple(ext.flatten_list(ext.extract(
             samples_data,
-            "observations", "actions_single", "advantages_single"
+            "observations", "actions", "advantages_single"
         )))
         agent_infos = samples_data["agent_infos"]
         state_info_list = [agent_infos[k] for k in self.policy.state_info_keys]
-        dist_info_list = ext.flatten_list([ext.single(agent_infos[k],
-                                                      expand_dims=True)
-                                           for k in
-                          self.policy.distribution.dist_info_keys])
+        # dist_info_list = ext.flatten_list([ext.single(agent_infos[k],
+        #                                               expand_dims=True)
+        #                                    for k in
+        #                   self.policy.distribution.dist_info_keys])
+        dist_info_list = [agent_infos[k] for k in
+                          self.policy.distribution.dist_info_keys]
         print("CATHYWU state info list", state_info_list)
         print("CATHYWU dist info list", dist_info_list)
         all_input_values += tuple(state_info_list) + tuple(dist_info_list)
@@ -145,50 +166,65 @@ class NPOAction(BatchPolopt):
                                              self.advantage_vars)
         adv = temp(*all_input_values)
         print("CATHYWU adv", temp(*all_input_values))
+        assert(adv[0].shape[-1] == 1)
 
         temp = tensor_utils.compile_function(self.input_list,
                                              self.lrs)
         lrs = temp(*all_input_values)
-        print("CATHYWU lrs", temp(*all_input_values))
+        print("cathywu lrs", temp(*all_input_values))
+        assert(lrs[0].shape[-1] == 1)
+
         temp = tensor_utils.compile_function(self.input_list,
                                              self.dist1.logli_new)
         logli_new = temp(*all_input_values)
-        print("CATHYWU logli_new", temp(*all_input_values))
+        print("cathywu logli_new", temp(*all_input_values))
         temp = tensor_utils.compile_function(self.input_list,
                                              self.dist1.logli_old)
         logli_old = temp(*all_input_values)
-        print("CATHYWU logli_old", temp(*all_input_values))
+        print("cathywu logli_old", temp(*all_input_values))
         temp = tensor_utils.compile_function(self.input_list,
-                                             self.dist1.new_dist_info_vars[
+                                             self.dist1.new_dist_info_vars[0][
                                                  "mean"])
         logli_new_mean = temp(*all_input_values)
-        print("CATHYWU new means", temp(*all_input_values))
+        print("cathywu new means", temp(*all_input_values))
         temp = tensor_utils.compile_function(self.input_list,
-                                             self.dist1.new_dist_info_vars[
+                                             self.dist1.new_dist_info_vars[0][
                                                  "log_std"])
         logli_new_log_std = temp(*all_input_values)
-        print("CATHYWU new log_std", temp(*all_input_values))
+        print("cathywu new log_std", temp(*all_input_values))
         temp = tensor_utils.compile_function(self.input_list,
-                                             self.dist1.old_dist_info_vars[
+                                             self.dist1.old_dist_info_vars[0][
                                                  "mean"])
         logli_old_means = temp(*all_input_values)
-        print("CATHYWU old means", temp(*all_input_values))
+        print("cathywu old means", temp(*all_input_values))
         temp = tensor_utils.compile_function(self.input_list,
-                                             self.dist1.old_dist_info_vars[
+                                             self.dist1.old_dist_info_vars[0][
                                                  "log_std"])
         logli_old_log_std = temp(*all_input_values)
-        print("CATHYWU old log_stds", temp(*all_input_values))
+        print("cathywu old log_stds", temp(*all_input_values))
         temp = tensor_utils.compile_function(self.input_list,
-                                             self.action_vars)
-        action_vars = temp(*all_input_values)
-        print("CATHYWU action_vars", temp(*all_input_values))
+                                             self.action_var)
+        action_var = temp(*all_input_values)
+        print("cathywu action_vars", temp(*all_input_values))
+        assert(action_var.shape[-1] == 6)
+        # temp = tensor_utils.compile_function(self.input_list,
+        #                                      self.mean_kl)
+        # # mean_kl = temp(*all_input_values)
+        # print("cathywu mean_kl", temp(*all_input_values))
         temp = tensor_utils.compile_function(self.input_list,
-                                             self.mean_kl)
-        mean_kl = temp(*all_input_values)
-        print("CATHYWU mean_kl", temp(*all_input_values))
-        # FIXME(cathywu) first 3 actions have large loss and large lrs
-        print("CATHYWU loss terms", [sum(lrs[k] * adv[k]) for k in range(
-            self.nactions)])
+                                             self.surr_loss)
+        surr_loss = temp(*all_input_values)
+        print("cathywu surr_loss", temp(*all_input_values))
+        temp = tensor_utils.compile_function(self.input_list,
+                                             self.loss_vec)
+        loss_vec = temp(*all_input_values)
+        print("cathywu loss_vec", temp(*all_input_values))
+        # fixme(cathywu) first 3 actions have large loss and large lrs
+        import numpy as np
+        partial_loss_manual = np.sum([lrs[k] * adv[k] for k in range(
+            self.nactions)], axis=0)
+        print("cathywu loss terms", partial_loss_manual)
+        print("cathywu loss", np.mean(partial_loss_manual))
         # import ipdb
         # ipdb.set_trace()
 

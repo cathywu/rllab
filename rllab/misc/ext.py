@@ -20,7 +20,7 @@ def flatten_list(x):
     return [xii for xi in x for xii in (xi if isinstance(xi, list) else [xi])]
 
 
-def single(xi, expand_dims=False):
+def single(xi, expand_dims=True):
     """
     Single out column vectors. Given a (n,k) array, return columnwise k (n,
     ) arrays

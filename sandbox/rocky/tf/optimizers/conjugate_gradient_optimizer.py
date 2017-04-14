@@ -264,7 +264,9 @@ class ConjugateGradientOptimizer(Serializable):
         logger.log("computing descent direction")
         Hx = self._hvp_approach.build_eval(subsample_inputs + extra_inputs)
 
-        descent_direction = krylov.cg(Hx, flat_g, cg_iters=self._cg_iters)
+        descent_direction = krylov.cg(Hx, flat_g, cg_iters=self._cg_iters,
+                                      verbose=True)
+        # descent_direction = krylov.cg(Hx, flat_g, cg_iters=self._cg_iters)
 
         initial_step_size = np.sqrt(
             2.0 * self._max_constraint_val * (1. / (descent_direction.dot(Hx(descent_direction)) + 1e-8))

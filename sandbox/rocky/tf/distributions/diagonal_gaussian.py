@@ -72,27 +72,28 @@ class DiagonalGaussian(Distribution):
 
     def likelihood_ratio_sym(self, x_var, old_dist_info_vars,
                              new_dist_info_vars, idx=None):
-        self.new_dist_info_vars = new_dist_info_vars
-        self.old_dist_info_vars = old_dist_info_vars
+        self.new_dist_info_vars[idx] = new_dist_info_vars
+        self.old_dist_info_vars[idx] = old_dist_info_vars
         logli_new = self.log_likelihood_sym(x_var, new_dist_info_vars, idx=idx)
-        logli_old = self.log_likelihood_sym(x_var, old_dist_info_vars)
-        self.logli_new = logli_new
-        self.logli_old = logli_old
+        logli_old = self.log_likelihood_sym(x_var, old_dist_info_vars, idx=idx)
+        self.logli_new[idx] = logli_new
+        self.logli_old[idx] = logli_old
         return tf.exp(logli_new - logli_old)
 
     def log_likelihood_sym(self, x_var, dist_info_vars, idx=None):
         if idx is not None:
-            x_var = tf.expand_dims(x_var, axis=1)
+            x_var = tf.expand_dims(x_var[:, idx], axis=1)
             means = tf.expand_dims(dist_info_vars["mean"][:, idx], axis=1)
             log_stds = tf.expand_dims(dist_info_vars["log_std"][:, idx], axis=1)
-            self.means = means
-            self.log_stds = log_stds
+            self.means[idx] = means
+            self.log_stds[idx] = log_stds
         else:
             # FIXME(cathywu) remove and fix this on the outside
-            x_var = tf.expand_dims(x_var, axis=1)
+            # x_var = tf.expand_dims(x_var, axis=1)
             means = dist_info_vars["mean"]
             log_stds = dist_info_vars["log_std"]
         zs = (x_var - means) / tf.exp(log_stds)
+        self.zs[idx] = zs
         return - tf.reduce_sum(log_stds, axis=-1) - \
                0.5 * tf.reduce_sum(tf.square(zs), axis=-1) - \
                0.5 * self.dim * np.log(2 * np.pi)
