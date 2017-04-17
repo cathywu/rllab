@@ -71,7 +71,6 @@ class BaseSampler(Sampler):
                      path_baselines[:, :-1]).T
             # TODO(cathywu) what do the last 2 terms mean?
             # 1-step bellman error / TD error
-            # what is this one?
             baselines.append(path_baselines[:, :-1])
 
             path["advantages"] = special.discount_cumsum(
@@ -183,7 +182,6 @@ class BaseSampler(Sampler):
             )
 
         logger.log("fitting baseline...")
-        # TODO(cathywu) for loop here for the k baselines
         if hasattr(self.algo.baseline, 'fit_with_samples'):
             self.algo.baseline.fit_with_samples(paths, samples_data)
         else:

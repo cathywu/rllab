@@ -22,8 +22,8 @@ def flatten_list(x):
 
 def single(xi, expand_dims=True):
     """
-    Single out column vectors. Given a (n,k) array, return columnwise k (n,
-    ) arrays
+    Single out column vectors. Given a (n,k) array, return k columnwise
+    (n,)-shape arrays
     :param xi: (n,k) array
     :return: list of k (n,)-shaped arrays
     """
@@ -43,14 +43,6 @@ def extract(x, *keys):
     elif isinstance(x, list):
         return tuple([single(xi[k.split('_single')[0]]) if len(k.split(
                 '_single')) > 1 else xi[k] for xi in x] for k in keys)
-    else:
-        raise NotImplementedError
-
-def extract_single_actions(x, *keys):
-    if isinstance(x, (dict, lazydict)):
-        return tuple(x[k] for k in keys)
-    elif isinstance(x, list):
-        return tuple([xi[k] for xi in x] for k in keys)
     else:
         raise NotImplementedError
 

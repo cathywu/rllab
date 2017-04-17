@@ -22,7 +22,6 @@ stub(globals())
 
 env = TfEnv(normalize(GymEnv("Walker2d-v1", force_reset=True),
                       normalize_obs=False))
-# env = TfEnv(normalize(GymEnv("Pendulum-v0")))
 
 policy = GaussianMLPPolicy(
     name="policy",
