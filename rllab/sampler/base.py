@@ -65,6 +65,8 @@ class BaseSampler(Sampler):
             # 1-step bellman error / TD error
             # what is this one?
             # FIXME(cathywu) compute the advantages properly
+            # path["advantages"] = special.discount_cumsum(
+            #     deltas, self.algo.discount * self.algo.gae_lambda)
             path["advantages"] = np.tile(special.discount_cumsum(
                 deltas, self.algo.discount * self.algo.gae_lambda),
                     [6,1]).T

@@ -27,10 +27,13 @@ def single(xi, expand_dims=True):
     :param xi: (n,k) array
     :return: list of k (n,)-shaped arrays
     """
-    if expand_dims:
-        return [np.expand_dims(xi[:,k], axis=1) for k in range(xi.shape[1])]
+    if len(xi.shape) == 1:
+        return np.expand_dims(xi, axis=1) if expand_dims else xi
     else:
-        return [xi[:,k] for k in range(xi.shape[1])]
+        if expand_dims:
+            return [np.expand_dims(xi[:,k], axis=1) for k in range(xi.shape[1])]
+        else:
+            return [xi[:,k] for k in range(xi.shape[1])]
 
 
 def extract(x, *keys):

@@ -27,6 +27,7 @@ policy = GaussianMLPPolicy(
     name="policy",
     env_spec=env.spec,
     # The neural network policy should have two hidden layers, each with 32 hidden units.
+    # hidden_sizes=(8,),
     hidden_sizes=(100, 50, 25),
     hidden_nonlinearity=tf.nn.tanh,
 )

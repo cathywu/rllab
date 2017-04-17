@@ -78,10 +78,11 @@ class DiagonalGaussian(Distribution):
         logli_old = self.log_likelihood_sym(x_var, old_dist_info_vars, idx=idx)
 
         # TODO(cathywu) remove
-        self.new_dist_info_vars[idx] = new_dist_info_vars
-        self.old_dist_info_vars[idx] = old_dist_info_vars
-        self.logli_new[idx] = logli_new
-        self.logli_old[idx] = logli_old
+        if idx is not None:
+            self.new_dist_info_vars[idx] = new_dist_info_vars
+            self.old_dist_info_vars[idx] = old_dist_info_vars
+            self.logli_new[idx] = logli_new
+            self.logli_old[idx] = logli_old
 
         return tf.exp(logli_new - logli_old)
 
@@ -98,7 +99,7 @@ class DiagonalGaussian(Distribution):
             means = dist_info_vars["mean"]
             log_stds = dist_info_vars["log_std"]
         zs = (x_var - means) / tf.exp(log_stds)
-        self.zs[idx] = zs
+        # self.zs[idx] = zs
         return - tf.reduce_sum(log_stds, axis=-1) - \
                0.5 * tf.reduce_sum(tf.square(zs), axis=-1) - \
                0.5 * self.dim * np.log(2 * np.pi)
