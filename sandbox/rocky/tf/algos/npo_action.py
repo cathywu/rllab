@@ -71,9 +71,9 @@ class NPOAction(BatchPolopt):
         dist1 = DiagonalGaussian(1)
 
         # TODO(cathywu) remove debug statements
-        print("CATHYWU", dist.dist_info_specs, self.policy.state_info_specs)
-        print("CATHYWU old dist info vars", old_dist_info_vars)
-        print("CATHYWU state info vars", state_info_vars)
+        # print("CATHYWU", dist.dist_info_specs, self.policy.state_info_specs)
+        # print("CATHYWU old dist info vars", old_dist_info_vars)
+        # print("CATHYWU state info vars", state_info_vars)
         self.dist1 = dist1
         self.dist1.means = [0 for _ in range(self.nactions)]
         self.dist1.log_stds = [0 for _ in range(self.nactions)]
@@ -85,14 +85,14 @@ class NPOAction(BatchPolopt):
 
         lrs = [0 for _ in range(self.nactions)]
         kls = [0 for _ in range(self.nactions)]
-        print("CATHYWU policy", self.policy)
+        # print("CATHYWU policy", self.policy)
         dist_info_vars = self.policy.dist_info_sym(obs_var, state_info_vars)
         kl = dist.kl_sym(old_dist_info_vars, dist_info_vars)
         for k in range(self.nactions):
             # TODO(cathywu) split into k 1-by-1 Diagonal covariance matrix
             # TODO(cathywu) shape?
-            print(
-            "CATHYWU lrs", action_var, old_dist_info_vars, dist_info_vars)
+            # print(
+            # "CATHYWU lrs", action_var, old_dist_info_vars, dist_info_vars)
             # Convention: shape [?, 1]
             lrs[k] = tf.expand_dims(dist1.likelihood_ratio_sym(action_var,
                                                 old_dist_info_vars,
@@ -111,7 +111,7 @@ class NPOAction(BatchPolopt):
                          action_var,
                          advantage_vars,
                      ] + state_info_vars_list + old_dist_info_vars_list)
-        print("CATHYWU input_list", input_list)
+        # print("CATHYWU input_list", input_list)
 
         self.optimizer.update_opt(
             loss=surr_loss,

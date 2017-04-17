@@ -49,37 +49,48 @@ class BaseSampler(Sampler):
         baselines = []
         returns = []
 
-        # TODO(cathywu) For loop start (for k baselines)
         if hasattr(self.algo.baseline, "predict_n"):
             all_path_baselines = self.algo.baseline.predict_n(paths)
         else:
             all_path_baselines = [self.algo.baseline.predict(path) for path in paths]
 
         for idx, path in enumerate(paths):
-            path_baselines = np.append(all_path_baselines[idx], 0)
-            deltas = path["rewards"] + \
-                     self.algo.discount * path_baselines[1:] - \
-                     path_baselines[:-1]
-            # TODO(cathywu) what do the last 2 terms mean?
-            # TODO(cathywu) there's another baseline computation below,
-            # 1-step bellman error / TD error
-            # what is this one?
-            # FIXME(cathywu) compute the advantages properly
+            # path_baselines = np.append(all_path_baselines[idx], 0)
+            # deltas = path["rewards"] + \
+            #          self.algo.discount * path_baselines[1:] - \
+            #          path_baselines[:-1]
             # path["advantages"] = special.discount_cumsum(
             #     deltas, self.algo.discount * self.algo.gae_lambda)
-            path["advantages"] = np.tile(special.discount_cumsum(
-                deltas, self.algo.discount * self.algo.gae_lambda),
-                    [6,1]).T
-            path["returns"] = special.discount_cumsum(path["rewards"], self.algo.discount)
-            baselines.append(path_baselines[:-1])
-            returns.append(path["returns"])
-        # TODO(cathywu) For loop end (for k baselines)
+            # baselines.append(path_baselines[:-1])
 
-        # TODO(cathywu) Have k copies of this (for logging)
-        ev = special.explained_variance_1d(
-            np.concatenate(baselines),
-            np.concatenate(returns)
-        )
+            nactions = path["actions"].shape[-1]
+            path_baselines = np.hstack([all_path_baselines[idx], np.zeros((
+                                                                      nactions, 1))])
+            deltas = (np.tile(path["rewards"], [nactions, 1]) + \
+                     self.algo.discount * path_baselines[:, 1:] - \
+                     path_baselines[:, :-1]).T
+            # TODO(cathywu) what do the last 2 terms mean?
+            # 1-step bellman error / TD error
+            # what is this one?
+            baselines.append(path_baselines[:, :-1])
+
+            path["advantages"] = special.discount_cumsum(
+                deltas, self.algo.discount * self.algo.gae_lambda)
+
+            path["returns"] = special.discount_cumsum(path["rewards"], self.algo.discount)
+            returns.append(path["returns"])
+
+        # ev = special.explained_variance_1d(
+        #     np.concatenate(baselines),
+        #     np.concatenate(returns)
+        # )
+
+        ev = [0 for _ in range(nactions)]
+        for k in range(nactions):
+            ev[0] = special.explained_variance_1d(
+                np.concatenate([b[k, :] for b in baselines]),
+                np.concatenate(returns)
+            )
 
         if not self.algo.policy.recurrent:
             observations = tensor_utils.concat_tensor_list([path["observations"] for path in paths])
@@ -183,7 +194,11 @@ class BaseSampler(Sampler):
         logger.record_tabular('AverageDiscountedReturn',
                               average_discounted_return)
         logger.record_tabular('AverageReturn', np.mean(undiscounted_returns))
-        logger.record_tabular('ExplainedVariance', ev)
+        if isinstance(ev, list):
+            for k in range(len(ev)):
+                logger.record_tabular('ExplainedVariance[%s]' % k, ev[k])
+        else:
+            logger.record_tabular('ExplainedVariance', ev)
         logger.record_tabular('NumTrajs', len(paths))
         logger.record_tabular('Entropy', ent)
         logger.record_tabular('Perplexity', np.exp(ent))

@@ -3,6 +3,7 @@ import tensorflow as tf
 from sandbox.rocky.tf.algos.trpo import TRPO
 from sandbox.rocky.tf.algos.vpg import VPG
 from rllab.baselines.linear_feature_baseline import LinearFeatureBaseline
+from rllab.baselines.action_dependent_linear_feature_baseline import ActionDependentLinearFeatureBaseline
 from rllab.envs.gym_env import GymEnv
 from rllab.envs.normalized_env import normalize
 from sandbox.rocky.tf.optimizers.conjugate_gradient_optimizer import ConjugateGradientOptimizer
@@ -15,7 +16,7 @@ from rllab.misc.instrument import stub, run_experiment_lite
 algo = "TRPO"
 
 # exp_prefix = "Walker2d-comparison"
-exp_prefix = "debug-policy-factorization"
+exp_prefix = "debug-action-baseline"
 
 stub(globals())
 
@@ -32,7 +33,8 @@ policy = GaussianMLPPolicy(
     hidden_nonlinearity=tf.nn.tanh,
 )
 
-baseline = LinearFeatureBaseline(env_spec=env.spec)
+# baseline = LinearFeatureBaseline(env_spec=env.spec)
+baseline = ActionDependentLinearFeatureBaseline(env_spec=env.spec)
 
 # Parameters from https://github.com/shaneshixiang/rllabplusplus/blob/master/
 # sandbox/rocky/tf/launchers/launcher_utils.py
