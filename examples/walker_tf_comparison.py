@@ -4,6 +4,7 @@ from sandbox.rocky.tf.algos.trpo import TRPO
 from sandbox.rocky.tf.algos.vpg import VPG
 from rllab.baselines.linear_feature_baseline import LinearFeatureBaseline
 from rllab.baselines.action_dependent_linear_feature_baseline import ActionDependentLinearFeatureBaseline
+from rllab.baselines.action_dependent_gaussian_mlp_baseline import ActionDependentGaussianMLPBaseline
 from rllab.envs.gym_env import GymEnv
 from rllab.envs.normalized_env import normalize
 from sandbox.rocky.tf.optimizers.conjugate_gradient_optimizer import ConjugateGradientOptimizer
@@ -16,7 +17,7 @@ from rllab.misc.instrument import stub, run_experiment_lite
 algo = "TRPO"
 
 # exp_prefix = "Walker2d-comparison"
-exp_prefix = "debug-action-baseline"
+exp_prefix = "improve-action-baseline"
 
 stub(globals())
 
@@ -34,6 +35,9 @@ policy = GaussianMLPPolicy(
 
 # baseline = LinearFeatureBaseline(env_spec=env.spec)
 baseline = ActionDependentLinearFeatureBaseline(env_spec=env.spec)
+# TODO(cathywu) pass in arguments so that the baselines uses the same number
+# of weights or something
+# baseline = ActionDependentGaussianMLPBaseline(env_spec=env.spec)
 
 # Parameters from https://github.com/shaneshixiang/rllabplusplus/blob/master/
 # sandbox/rocky/tf/launchers/launcher_utils.py

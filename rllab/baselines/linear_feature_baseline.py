@@ -8,7 +8,7 @@ class LinearFeatureBaseline(Baseline):
         self._coeffs = None
         self._reg_coeff = reg_coeff
 
-        self.nactions = env_spec.action_space.shape[0]
+        self.nactions = env_spec.action_space.flat_dim
 
     @overrides
     def get_param_values(self, **tags):
@@ -23,8 +23,8 @@ class LinearFeatureBaseline(Baseline):
         l = len(path["rewards"])
         al = np.arange(l).reshape(-1, 1) / 100.0
         if idx is not None:
-            a = path["actions"][:, [x for x in range(self.nactions) if x !=
-                                    idx]]
+            minus_idx = [x for x in range(self.nactions) if x != idx]
+            a = path["actions"][:, minus_idx]
             return np.concatenate([o, o ** 2, a, a**2, al, al ** 2, al ** 3,
                                    np.ones((l, 1))], axis=1)
         return np.concatenate([o, o ** 2, al, al ** 2, al ** 3, np.ones((l, 1))], axis=1)
