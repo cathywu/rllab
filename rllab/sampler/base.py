@@ -86,7 +86,7 @@ class BaseSampler(Sampler):
 
         ev = [0 for _ in range(nactions)]
         for k in range(nactions):
-            ev[0] = special.explained_variance_1d(
+            ev[k] = special.explained_variance_1d(
                 np.concatenate([b[k, :] for b in baselines]),
                 np.concatenate(returns)
             )
