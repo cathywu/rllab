@@ -11,7 +11,7 @@ from rllab.envs.normalized_env import normalize
 from sandbox.rocky.tf.envs.base import TfEnv
 from sandbox.rocky.tf.policies.gaussian_mlp_policy import GaussianMLPPolicy
 # from sandbox.rocky.tf.algos.trpo import TRPO
-from sandbox.rocky.tf.algos.trpo_action import TRPOAction as TRPO
+# from sandbox.rocky.tf.algos.trpo_action import TRPOAction as TRPO
 from rllab.misc.instrument import run_experiment_lite
 from rllab.envs.gym_env import GymEnv
 
@@ -45,12 +45,12 @@ def gen_run_task(baseline_cls):
         )
 
         baseline = baseline_cls(env_spec=env.spec)
-        # action_dependent = True if (hasattr(baseline,
-        #                                     "action_dependent") and baseline.action_dependent is True) else False
-        # if action_dependent:
-        #     from sandbox.rocky.tf.algos.trpo_action import TRPOAction as TRPO
-        # else:
-        #     from sandbox.rocky.tf.algos.trpo import TRPO
+        action_dependent = True if (hasattr(baseline,
+                                            "action_dependent") and baseline.action_dependent is True) else False
+        if action_dependent:
+            from sandbox.rocky.tf.algos.trpo_action import TRPOAction as TRPO
+        else:
+            from sandbox.rocky.tf.algos.trpo import TRPO
 
         algo = TRPO(
             env=env,
@@ -58,7 +58,7 @@ def gen_run_task(baseline_cls):
             baseline=baseline,
             batch_size=5000,
             max_path_length=env.horizon,
-            n_itr=1000, # 1000
+            n_itr=800, # 1000
             discount=0.99,
             step_size=vv["step_size"],
             sample_backups=0,
@@ -74,10 +74,12 @@ def gen_run_task(baseline_cls):
 
 variants = VG().variants()
 
-baselines = [ActionDependentLinearFeatureBaseline,
+baselines = [
              ActionDependentGaussianMLPBaseline,
+             GaussianMLPBaseline,
              LinearFeatureBaseline,
-             GaussianMLPBaseline]
+             ActionDependentLinearFeatureBaseline,
+            ]
 
 for v in variants:
 
