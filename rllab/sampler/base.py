@@ -44,6 +44,8 @@ class BaseSampler(Sampler):
         :type algo: BatchPolopt
         """
         self.algo = algo
+        self.action_dependent = True if (hasattr(self.algo.baseline,
+                                                 "action_dependent") and self.algo.baseline.action_dependent is True) else False
 
     def process_samples(self, itr, paths):
         baselines = []
@@ -55,23 +57,24 @@ class BaseSampler(Sampler):
             all_path_baselines = [self.algo.baseline.predict(path) for path in paths]
 
         for idx, path in enumerate(paths):
-            # path_baselines = np.append(all_path_baselines[idx], 0)
-            # deltas = path["rewards"] + \
-            #          self.algo.discount * path_baselines[1:] - \
-            #          path_baselines[:-1]
-            # path["advantages"] = special.discount_cumsum(
-            #     deltas, self.algo.discount * self.algo.gae_lambda)
-            # baselines.append(path_baselines[:-1])
-
-            nactions = path["actions"].shape[-1]
-            path_baselines = np.hstack([all_path_baselines[idx], np.zeros((
-                                                                      nactions, 1))])
-            deltas = (np.tile(path["rewards"], [nactions, 1]) + \
-                     self.algo.discount * path_baselines[:, 1:] - \
-                     path_baselines[:, :-1]).T
-            # TODO(cathywu) what do the last 2 terms mean?
-            # 1-step bellman error / TD error
-            baselines.append(path_baselines[:, :-1])
+            if not self.action_dependent:
+                path_baselines = np.append(all_path_baselines[idx], 0)
+                deltas = path["rewards"] + \
+                         self.algo.discount * path_baselines[1:] - \
+                         path_baselines[:-1]
+                path["advantages"] = special.discount_cumsum(
+                    deltas, self.algo.discount * self.algo.gae_lambda)
+                baselines.append(path_baselines[:-1])
+            else:
+                nactions = path["actions"].shape[-1]
+                path_baselines = np.hstack([all_path_baselines[idx], np.zeros((
+                                                                          nactions, 1))])
+                deltas = (np.tile(path["rewards"], [nactions, 1]) + \
+                         self.algo.discount * path_baselines[:, 1:] - \
+                         path_baselines[:, :-1]).T
+                # TODO(cathywu) what do the last 2 terms mean?
+                # 1-step bellman error / TD error
+                baselines.append(path_baselines[:, :-1])
 
             path["advantages"] = special.discount_cumsum(
                 deltas, self.algo.discount * self.algo.gae_lambda)
@@ -79,17 +82,18 @@ class BaseSampler(Sampler):
             path["returns"] = special.discount_cumsum(path["rewards"], self.algo.discount)
             returns.append(path["returns"])
 
-        # ev = special.explained_variance_1d(
-        #     np.concatenate(baselines),
-        #     np.concatenate(returns)
-        # )
-
-        ev = [0 for _ in range(nactions)]
-        for k in range(nactions):
-            ev[k] = special.explained_variance_1d(
-                np.concatenate([b[k, :] for b in baselines]),
+        if not self.action_dependent:
+            ev = special.explained_variance_1d(
+                np.concatenate(baselines),
                 np.concatenate(returns)
             )
+        else:
+            ev = [0 for _ in range(nactions)]
+            for k in range(nactions):
+                ev[k] = special.explained_variance_1d(
+                    np.concatenate([b[k, :] for b in baselines]),
+                    np.concatenate(returns)
+                )
 
         if not self.algo.policy.recurrent:
             observations = tensor_utils.concat_tensor_list([path["observations"] for path in paths])

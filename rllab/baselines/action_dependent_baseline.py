@@ -7,6 +7,7 @@ import numpy as np
 class ActionDependentBaseline(Baseline):
     def __init__(self, env_spec):
         self.nactions = env_spec.action_space.shape[0]
+        self.action_dependent = True
 
     @overrides
     def get_param_values(self, **tags):

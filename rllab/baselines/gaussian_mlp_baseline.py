@@ -22,8 +22,7 @@ class GaussianMLPBaseline(Baseline, Parameterized, Serializable):
         if regressor_args is None:
             regressor_args = dict()
 
-        if action_dependent:
-            self.nactions = env_spec.action_space.flat_dim
+        self.nactions = env_spec.action_space.flat_dim
 
         # Notice the self.nactions-1 implicitly assumes conditional independence
         # TODO(cathywu) implement a more general version for general

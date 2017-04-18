@@ -1,8 +1,15 @@
 import tensorflow as tf
 
-from sandbox.rocky.tf.algos.trpo import TRPO
+action_dependent = True
+
+if action_dependent:
+    from sandbox.rocky.tf.algos.trpo_action import TRPOAction as TRPO
+else:
+    from sandbox.rocky.tf.algos.trpo import TRPO
+
 from sandbox.rocky.tf.algos.vpg import VPG
 from rllab.baselines.linear_feature_baseline import LinearFeatureBaseline
+from rllab.baselines.gaussian_mlp_baseline import GaussianMLPBaseline
 from rllab.baselines.action_dependent_linear_feature_baseline import ActionDependentLinearFeatureBaseline
 from rllab.baselines.action_dependent_gaussian_mlp_baseline import ActionDependentGaussianMLPBaseline
 from rllab.envs.gym_env import GymEnv
@@ -19,7 +26,8 @@ algo = "TRPO"
 # exp_prefix = "Walker2d-comparison"
 exp_prefix = "improve-action-baseline"
 
-stub(globals())
+# Not needed for a local run
+# stub(globals())
 
 env = TfEnv(normalize(GymEnv("Walker2d-v1", force_reset=True),
                       normalize_obs=False))
@@ -33,11 +41,14 @@ policy = GaussianMLPPolicy(
     hidden_nonlinearity=tf.nn.tanh,
 )
 
-# baseline = LinearFeatureBaseline(env_spec=env.spec)
-baseline = ActionDependentLinearFeatureBaseline(env_spec=env.spec)
+if action_dependent:
+    # baseline = ActionDependentLinearFeatureBaseline(env_spec=env.spec)
+    baseline = ActionDependentGaussianMLPBaseline(env_spec=env.spec)
+else:
+    # baseline = LinearFeatureBaseline(env_spec=env.spec)
+    baseline = GaussianMLPBaseline(env_spec=env.spec)
 # TODO(cathywu) pass in arguments so that the baselines uses the same number
 # of weights or something
-# baseline = ActionDependentGaussianMLPBaseline(env_spec=env.spec)
 
 # Parameters from https://github.com/shaneshixiang/rllabplusplus/blob/master/
 # sandbox/rocky/tf/launchers/launcher_utils.py

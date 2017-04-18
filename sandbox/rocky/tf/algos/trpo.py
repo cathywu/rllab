@@ -1,12 +1,10 @@
 
 
 from sandbox.rocky.tf.algos.npo import NPO
-from sandbox.rocky.tf.algos.npo_action import NPOAction
 from sandbox.rocky.tf.optimizers.conjugate_gradient_optimizer import ConjugateGradientOptimizer
 
 
-# class TRPO(NPO):
-class TRPO(NPOAction):
+class TRPO(NPO):
     """
     Trust Region Policy Optimization
     """
