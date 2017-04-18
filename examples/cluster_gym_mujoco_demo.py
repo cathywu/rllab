@@ -55,7 +55,7 @@ for v in variants:
 
     run_experiment_lite(
         run_task,
-        exp_prefix="first_exp",
+        exp_prefix="second_exp",
         # Number of parallel workers for sampling
         n_parallel=1,
         # Only keep the snapshot parameters for the last iteration
@@ -65,6 +65,7 @@ for v in variants:
         seed=v["seed"],
         # mode="local",
         mode="ec2",
+        # mode="local_docker",
         variant=v,
         # plot=True,
         # terminate_machine=False,

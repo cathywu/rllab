@@ -23,11 +23,11 @@ from rllab.misc.instrument import stub, run_experiment_lite
 # algo = "VPG"
 algo = "TRPO"
 
-# exp_prefix = "Walker2d-comparison"
-exp_prefix = "improve-action-baseline"
+exp_prefix = "Walker2d-comparison-action"
+# exp_prefix = "improve-action-baseline"
 
 # Not needed for a local run
-# stub(globals())
+stub(globals())
 
 env = TfEnv(normalize(GymEnv("Walker2d-v1", force_reset=True),
                       normalize_obs=False))
@@ -41,12 +41,11 @@ policy = GaussianMLPPolicy(
     hidden_nonlinearity=tf.nn.tanh,
 )
 
-if action_dependent:
-    # baseline = ActionDependentLinearFeatureBaseline(env_spec=env.spec)
-    baseline = ActionDependentGaussianMLPBaseline(env_spec=env.spec)
-else:
-    # baseline = LinearFeatureBaseline(env_spec=env.spec)
-    baseline = GaussianMLPBaseline(env_spec=env.spec)
+# baseline = ActionDependentLinearFeatureBaseline(env_spec=env.spec)
+baseline = ActionDependentGaussianMLPBaseline(env_spec=env.spec)
+# baseline = LinearFeatureBaseline(env_spec=env.spec)
+# baseline = GaussianMLPBaseline(env_spec=env.spec)
+
 # TODO(cathywu) pass in arguments so that the baselines uses the same number
 # of weights or something
 

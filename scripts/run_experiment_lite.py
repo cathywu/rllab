@@ -1,6 +1,8 @@
 import sys
 
 sys.path.append(".")
+# FIXME(cathywu) HACK for missing in path in 20170417 docker build
+sys.path.append("/root/code/rllab")
 
 from rllab.misc.ext import is_iterable, set_seed
 from rllab.misc.instrument import concretize

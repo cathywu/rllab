@@ -46,6 +46,7 @@ for step_size in [0.01, 0.05, 0.1]:
             # will be used
             seed=seed,
             # mode="local",
+            # mode="local_docker",
             mode="ec2",
             variant=dict(step_size=step_size, seed=seed)
             # plot=True,
