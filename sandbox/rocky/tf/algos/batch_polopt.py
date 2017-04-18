@@ -83,8 +83,7 @@ class BatchPolopt(RLAlgorithm):
                 sampler_cls = BatchSampler
         if sampler_args is None:
             sampler_args = dict()
-        # TODO(cathywu) For convenience, is there something easier?
-        self.nactions = self.env.action_space.shape[0]
+        self.nactions = self.env.action_space.flat_dim
         self.sampler = sampler_cls(self, **sampler_args)
         self.init_opt()
 

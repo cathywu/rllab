@@ -7,8 +7,6 @@ class Box(TheanoBox):
         if flatten:
             return tf.placeholder(tf.float32, shape=[None] * extra_dims + ([
                 self.flat_dim] if not size else [size]), name=name)
-            # TODO(cathywu) where is self.flat_dim set?
-            # TODO(cathywu) when is flatten=False?
         return tf.placeholder(tf.float32, shape=[None] * extra_dims + (list(
             self.shape) if not size else [size]), name=name)
 
