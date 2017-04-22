@@ -6,7 +6,7 @@ import numpy as np
 
 class ActionDependentBaseline(Baseline):
     def __init__(self, env_spec):
-        self.nactions = env_spec.action_space.shape[0]
+        self.nactions = env_spec.action_space.flat_dim
         self.action_dependent = True
 
     @overrides

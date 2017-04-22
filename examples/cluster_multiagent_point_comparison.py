@@ -10,14 +10,12 @@ from rllab.baselines.action_dependent_gaussian_mlp_baseline import ActionDepende
 from rllab.envs.normalized_env import normalize
 from sandbox.rocky.tf.envs.base import TfEnv
 from sandbox.rocky.tf.policies.gaussian_mlp_policy import GaussianMLPPolicy
-# from sandbox.rocky.tf.algos.trpo import TRPO
-# from sandbox.rocky.tf.algos.trpo_action import TRPOAction as TRPO
 from rllab.misc.instrument import run_experiment_lite
-from rllab.envs.gym_env import GymEnv
+from examples.multiagent_point_env import MultiagentPointEnv
 
 from rllab.misc.instrument import VariantGenerator, variant
 
-exp_prefix = "cluster_Walker2d_comparison"
+exp_prefix = "cluster_multiagent_point_v2"
 
 class VG(VariantGenerator):
 
@@ -34,17 +32,16 @@ class VG(VariantGenerator):
         return [
             "ActionDependentGaussianMLPBaseline",
             "GaussianMLPBaseline",
-            "LinearFeatureBaseline",
-            "ActionDependentLinearFeatureBaseline",
+             "LinearFeatureBaseline",
+             "ActionDependentLinearFeatureBaseline",
         ]
 
 
 def gen_run_task(baseline_cls):
 
     def run_task(vv):
-        env = TfEnv(normalize(GymEnv("Walker2d-v1", force_reset=True,
-                                     record_video=False, record_log=False),
-                          normalize_obs=True))
+        env = TfEnv(normalize(MultiagentPointEnv(d=1, k=6),
+                          normalize_obs=False))
 
         policy = GaussianMLPPolicy(
             env_spec=env.spec,
@@ -73,8 +70,8 @@ def gen_run_task(baseline_cls):
             policy=policy,
             baseline=baseline,
             batch_size=5000,
-            max_path_length=env.horizon,
-            n_itr=800, # 1000
+            max_path_length=1000,
+            n_itr=500, # 1000
             discount=0.99,
             step_size=vv["step_size"],
             sample_backups=0,
