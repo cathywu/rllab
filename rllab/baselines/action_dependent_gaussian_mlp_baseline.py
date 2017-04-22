@@ -1,15 +1,12 @@
 import numpy as np
 
 from rllab.core.serializable import Serializable
-from sandbox.rocky.tf.core.parameterized import Parameterized
-from rllab.baselines.base import Baseline
 from rllab.baselines.action_dependent_baseline import ActionDependentBaseline
 from rllab.baselines.gaussian_mlp_baseline import GaussianMLPBaseline
 from rllab.misc.overrides import overrides
 
 
 class ActionDependentGaussianMLPBaseline(ActionDependentBaseline,
-                                         Baseline, Parameterized,
                                          Serializable):
 
     def __init__(

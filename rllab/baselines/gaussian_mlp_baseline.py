@@ -1,7 +1,8 @@
 import numpy as np
 
 from rllab.core.serializable import Serializable
-from rllab.core.parameterized import Parameterized
+from sandbox.rocky.tf.core.parameterized import Parameterized
+# from rllab.core.parameterized import Parameterized
 from rllab.baselines.base import Baseline
 from rllab.misc.overrides import overrides
 from rllab.regressors.gaussian_mlp_regressor import GaussianMLPRegressor
