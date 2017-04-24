@@ -44,6 +44,7 @@ class TfEnv(ProxyEnv):
         return EnvSpec(
             observation_space=self.observation_space,
             action_space=self.action_space,
+            horizon=self.horizon,
         )
 
     @property

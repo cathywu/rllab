@@ -7,6 +7,7 @@ from rllab.baselines.gaussian_mlp_baseline import GaussianMLPBaseline
 from rllab.baselines.action_dependent_linear_feature_baseline import ActionDependentLinearFeatureBaseline
 from rllab.baselines.action_dependent_gaussian_mlp_baseline import ActionDependentGaussianMLPBaseline
 
+from rllab.envs.normalize_obs import NormalizeObs
 from rllab.envs.normalized_env import normalize
 from sandbox.rocky.tf.envs.base import TfEnv
 from sandbox.rocky.tf.policies.gaussian_mlp_policy import GaussianMLPPolicy
@@ -17,17 +18,34 @@ from rllab.envs.gym_env import GymEnv
 
 from rllab.misc.instrument import VariantGenerator, variant
 
-exp_prefix = "cluster_Walker2d_comparison"
+# exp_prefix = "cluster_Walker2d_comparison"
+exp_prefix = "test_lab42_port"
 
 class VG(VariantGenerator):
 
     @variant
     def step_size(self):
-        return [0.01, 0.05, 0.1]
+        return [0.01] # , 0.05, 0.1]
 
     @variant
     def seed(self):
-        return [1, 11, 21, 31, 41]
+        return [1] #, 11, 21, 31, 41]
+
+    @variant
+    def baseline_mix_fraction(self):
+        return [0.2]  # [0.2, 0.1, 1.0]
+
+    @variant
+    def baseline_include_time(self):
+        return [True, False]
+
+    @variant
+    def batch_size(self):
+        return [
+            # 1000,
+            5000,
+            # 25000,
+        ]
 
     @variant
     def baseline(self):
@@ -42,9 +60,9 @@ class VG(VariantGenerator):
 def gen_run_task(baseline_cls):
 
     def run_task(vv):
-        env = TfEnv(normalize(GymEnv("Walker2d-v1", force_reset=True,
+        env = TfEnv(NormalizeObs(GymEnv("Walker2d-v1", force_reset=True,
                                      record_video=False, record_log=False),
-                          normalize_obs=True))
+                          clip=5))
 
         policy = GaussianMLPPolicy(
             env_spec=env.spec,
@@ -53,14 +71,20 @@ def gen_run_task(baseline_cls):
             hidden_nonlinearity=tf.nn.tanh,
         )
 
+        baseline_args = {
+            'env_spec': env.spec,
+            'mix_fraction': v["baseline_mix_fraction"],
+            'include_time': v["baseline_include_time"],
+        }
         if baseline_cls == "ActionDependentGaussianMLPBaseline":
-            baseline = ActionDependentGaussianMLPBaseline(env_spec=env.spec)
+            baseline = ActionDependentGaussianMLPBaseline(**baseline_args)
         elif baseline_cls == "ActionDependentLinearFeatureBaseline":
-            baseline = ActionDependentLinearFeatureBaseline(env_spec=env.spec)
+            baseline = ActionDependentLinearFeatureBaseline(**baseline_args)
         elif baseline_cls == "GaussianMLPBaseline":
-            baseline = GaussianMLPBaseline(env_spec=env.spec)
+            baseline = GaussianMLPBaseline(**baseline_args)
         elif baseline_cls == "LinearFeatureBaseline":
-            baseline = LinearFeatureBaseline(env_spec=env.spec)
+            baseline = LinearFeatureBaseline(**baseline_args)
+
         action_dependent = True if (hasattr(baseline,
                                             "action_dependent") and baseline.action_dependent is True) else False
         if action_dependent:
@@ -72,10 +96,10 @@ def gen_run_task(baseline_cls):
             env=env,
             policy=policy,
             baseline=baseline,
-            batch_size=5000,
+            batch_size=v['batch_size'],
             max_path_length=env.horizon,
-            n_itr=800, # 1000
-            discount=0.99,
+            n_itr=1, # 800, # 1000
+            discount=0.995,
             step_size=vv["step_size"],
             sample_backups=0,
             # optimizer=ConjugateGradientOptimizer(hvp_approach=FiniteDifferenceHvp(base_eps=1e-5))

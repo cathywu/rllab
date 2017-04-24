@@ -44,7 +44,7 @@ class LinearFeatureBaseline(Baseline):
         return np.concatenate(feats, axis=-1)
 
     @property
-    def feature_size(self, action_dependent=False):
+    def feature_size(self):
         obs_dim = space_utils.space_to_flat_dim(self.observation_space)
         fsize = obs_dim * 2  # Is this 2 from obs + last_obs or o, o ** 2?
         if self.include_time:

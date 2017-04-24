@@ -6,9 +6,10 @@ import numpy as np
 
 class MultiagentPointEnv(Env):
 
-    def __init__(self, d=2, k=1):
+    def __init__(self, d=2, k=1, horizon=1e6):
         self.d = d
         self.k = k
+        self._horizon = horizon
 
     @property
     def observation_space(self):
@@ -17,6 +18,10 @@ class MultiagentPointEnv(Env):
     @property
     def action_space(self):
         return Box(low=-0.1, high=0.1, shape=(self.d, self.k))
+
+    @property
+    def horizon(self):
+        return self._horizon
 
     def reset(self):
         self._state = np.random.uniform(-1, 1, size=(self.d, self.k))
@@ -36,3 +41,4 @@ class MultiagentPointEnv(Env):
 
     def render(self):
         print('current state:', self._state)
+

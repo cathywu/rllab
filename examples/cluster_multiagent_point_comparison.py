@@ -3,12 +3,14 @@ import sys
 import tensorflow as tf
 
 from rllab.baselines.linear_feature_baseline import LinearFeatureBaseline
-from rllab.baselines.gaussian_mlp_baseline import GaussianMLPBaseline
-from rllab.baselines.action_dependent_linear_feature_baseline import ActionDependentLinearFeatureBaseline
-from rllab.baselines.action_dependent_gaussian_mlp_baseline import ActionDependentGaussianMLPBaseline
+from sandbox.rocky.tf.baselines.gaussian_mlp_baseline import GaussianMLPBaseline
+from rllab.baselines.action_dependent_linear_feature_baseline import \
+    ActionDependentLinearFeatureBaseline
+from rllab.baselines.action_dependent_gaussian_mlp_baseline import \
+    ActionDependentGaussianMLPBaseline
 
 from rllab.envs.normalize_obs import NormalizeObs
-from rllab.envs.normalized_env import normalize
+# from rllab.envs.normalized_env import normalize
 from sandbox.rocky.tf.envs.base import TfEnv
 from sandbox.rocky.tf.policies.gaussian_mlp_policy import GaussianMLPPolicy
 from rllab.misc.instrument import run_experiment_lite
@@ -17,34 +19,55 @@ from examples.multiagent_point_env import MultiagentPointEnv
 from rllab.misc.instrument import VariantGenerator, variant
 
 exp_prefix = "test_lab42_port"
+max_path_length = 1000
 
 class VG(VariantGenerator):
 
     @variant
     def step_size(self):
-        return [0.01, 0.05, 0.1]
+        return [0.01] # , 0.05, 0.1]
 
     @variant
     def seed(self):
-        return [1, 11, 21, 31, 41]
+        return [1] #, 11, 21, 31, 41]
+
+    @variant
+    def baseline_mix_fraction(self):
+        return [0.2]  # [0.2, 0.1, 1.0]
+
+    @variant
+    def baseline_include_time(self):
+        return [True, False]
+
+    @variant
+    def batch_size(self):
+        return [
+            # 1000,
+            5000,
+            # 25000,
+        ]
 
     @variant
     def baseline(self):
         return [
             "LinearFeatureBaseline",
+            "GaussianMLPBaseline",
             "ActionDependentLinearFeatureBaseline",
-            # "GaussianMLPBaseline",
-            # "ActionDependentGaussianMLPBaseline",
+            "ActionDependentGaussianMLPBaseline",
         ]
 
 
 def gen_run_task(baseline_cls):
 
     def run_task(vv):
-        env = TfEnv(NormalizeObs(MultiagentPointEnv(d=1, k=6), clip=5))
+        # running average normalization
+        env = TfEnv(NormalizeObs(MultiagentPointEnv(d=1, k=6,
+                                                    horizon=max_path_length),
+                                 clip=5))
 
+        # exponential weighting normalization
         # env = TfEnv(normalize(MultiagentPointEnv(d=1, k=6),
-        #                       normalize_obs=False))
+        #                       normalize_obs=True))
 
         policy = GaussianMLPPolicy(
             env_spec=env.spec,
@@ -53,14 +76,19 @@ def gen_run_task(baseline_cls):
             hidden_nonlinearity=tf.nn.tanh,
         )
 
+        baseline_args = {
+            'env_spec': env.spec,
+            'mix_fraction': v["baseline_mix_fraction"],
+            'include_time': v["baseline_include_time"],
+        }
         if baseline_cls == "ActionDependentGaussianMLPBaseline":
-            baseline = ActionDependentGaussianMLPBaseline(env_spec=env.spec)
+            baseline = ActionDependentGaussianMLPBaseline(**baseline_args)
         elif baseline_cls == "ActionDependentLinearFeatureBaseline":
-            baseline = ActionDependentLinearFeatureBaseline(env_spec=env.spec)
+            baseline = ActionDependentLinearFeatureBaseline(**baseline_args)
         elif baseline_cls == "GaussianMLPBaseline":
-            baseline = GaussianMLPBaseline(env_spec=env.spec)
+            baseline = GaussianMLPBaseline(**baseline_args)
         elif baseline_cls == "LinearFeatureBaseline":
-            baseline = LinearFeatureBaseline(env_spec=env.spec)
+            baseline = LinearFeatureBaseline(**baseline_args)
         action_dependent = True if (hasattr(baseline,
                                             "action_dependent") and baseline.action_dependent is True) else False
         if action_dependent:
@@ -72,10 +100,10 @@ def gen_run_task(baseline_cls):
             env=env,
             policy=policy,
             baseline=baseline,
-            batch_size=5000,
-            max_path_length=1000,
-            n_itr=3, # 1000
-            discount=0.99,
+            batch_size=v['batch_size'],
+            max_path_length=max_path_length,
+            n_itr=1, # 1000
+            discount=0.995,
             step_size=vv["step_size"],
             sample_backups=0,
             # optimizer=ConjugateGradientOptimizer(hvp_approach=FiniteDifferenceHvp(base_eps=1e-5))
@@ -109,4 +137,4 @@ for v in variants:
         # plot=True,
         # terminate_machine=False,
     )
-    sys.exit()
+    # sys.exit()
