@@ -7,6 +7,7 @@ from rllab.baselines.gaussian_mlp_baseline import GaussianMLPBaseline
 from rllab.baselines.action_dependent_linear_feature_baseline import ActionDependentLinearFeatureBaseline
 from rllab.baselines.action_dependent_gaussian_mlp_baseline import ActionDependentGaussianMLPBaseline
 
+from rllab.envs.normalize_obs import NormalizeObs
 from rllab.envs.normalized_env import normalize
 from sandbox.rocky.tf.envs.base import TfEnv
 from sandbox.rocky.tf.policies.gaussian_mlp_policy import GaussianMLPPolicy
@@ -15,7 +16,7 @@ from examples.multiagent_point_env import MultiagentPointEnv
 
 from rllab.misc.instrument import VariantGenerator, variant
 
-exp_prefix = "cluster_multiagent_point_v2"
+exp_prefix = "test_lab42_port"
 
 class VG(VariantGenerator):
 
@@ -30,18 +31,20 @@ class VG(VariantGenerator):
     @variant
     def baseline(self):
         return [
-            "ActionDependentGaussianMLPBaseline",
-            "GaussianMLPBaseline",
-             "LinearFeatureBaseline",
-             "ActionDependentLinearFeatureBaseline",
+            "LinearFeatureBaseline",
+            "ActionDependentLinearFeatureBaseline",
+            # "GaussianMLPBaseline",
+            # "ActionDependentGaussianMLPBaseline",
         ]
 
 
 def gen_run_task(baseline_cls):
 
     def run_task(vv):
-        env = TfEnv(normalize(MultiagentPointEnv(d=1, k=6),
-                          normalize_obs=False))
+        env = TfEnv(NormalizeObs(MultiagentPointEnv(d=1, k=6), clip=5))
+
+        # env = TfEnv(normalize(MultiagentPointEnv(d=1, k=6),
+        #                       normalize_obs=False))
 
         policy = GaussianMLPPolicy(
             env_spec=env.spec,
@@ -71,7 +74,7 @@ def gen_run_task(baseline_cls):
             baseline=baseline,
             batch_size=5000,
             max_path_length=1000,
-            n_itr=500, # 1000
+            n_itr=3, # 1000
             discount=0.99,
             step_size=vv["step_size"],
             sample_backups=0,
@@ -99,11 +102,11 @@ for v in variants:
         # Specifies the seed for the experiment. If this is not provided, a random seed
         # will be used
         seed=v["seed"],
-        # mode="local",
+        mode="local",
         # mode="ec2",
-        mode="local_docker",
+        # mode="local_docker",
         variant=v,
         # plot=True,
         # terminate_machine=False,
     )
-    # sys.exit()
+    sys.exit()
