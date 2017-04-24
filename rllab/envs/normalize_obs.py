@@ -19,10 +19,14 @@ class NormalizeObs(Env):
     @property
     def observation_space(self):
         return self.env.observation_space
-    
+
     @property
     def action_space(self):
         return self.env.action_space
+
+    @property
+    def horizon(self):
+        return self.env.horizon
 
     def reset(self):
         ob = self.env.reset()

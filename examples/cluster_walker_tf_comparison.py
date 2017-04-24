@@ -3,7 +3,7 @@ import sys
 import tensorflow as tf
 
 from rllab.baselines.linear_feature_baseline import LinearFeatureBaseline
-from rllab.baselines.gaussian_mlp_baseline import GaussianMLPBaseline
+from sandbox.rocky.tf.baselines.gaussian_mlp_baseline import GaussianMLPBaseline
 from rllab.baselines.action_dependent_linear_feature_baseline import ActionDependentLinearFeatureBaseline
 from rllab.baselines.action_dependent_gaussian_mlp_baseline import ActionDependentGaussianMLPBaseline
 
