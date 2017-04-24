@@ -18,7 +18,7 @@ from examples.multiagent_point_env import MultiagentPointEnv
 
 from rllab.misc.instrument import VariantGenerator, variant
 
-exp_prefix = "test_lab42_port"
+exp_prefix = "cluster_multiagent_v3"
 max_path_length = 1000
 
 class VG(VariantGenerator):

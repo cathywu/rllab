@@ -1,3 +1,5 @@
+import datetime
+import dateutil.tz
 import sys
 
 import tensorflow as tf
@@ -17,9 +19,11 @@ from rllab.misc.instrument import run_experiment_lite
 from rllab.envs.gym_env import GymEnv
 
 from rllab.misc.instrument import VariantGenerator, variant
+from rllab import config
+from rllab import config_personal
 
-# exp_prefix = "cluster_Walker2d_comparison"
-exp_prefix = "test_lab42_port"
+exp_prefix = "cluster_Walker2d_comparison"
+mode = 'ec2'
 
 class VG(VariantGenerator):
 
@@ -98,7 +102,7 @@ def gen_run_task(baseline_cls):
             baseline=baseline,
             batch_size=v['batch_size'],
             max_path_length=env.horizon,
-            n_itr=1, # 800, # 1000
+            n_itr=1000, # 800, # 1000
             discount=0.995,
             step_size=vv["step_size"],
             sample_backups=0,
@@ -114,11 +118,35 @@ def gen_run_task(baseline_cls):
 
 variants = VG().variants()
 
-for v in variants:
+offset = 0  # Index among variants to start at
+AWS_REGIONS = [x for x in config_personal.ALL_REGION_AWS_KEY_NAMES.keys()]
+
+for i, v in enumerate(variants):
+
+    if i < offset:
+        continue
+
+    if mode == "ec2" and i - offset >= len(AWS_REGIONS):
+        sys.exit()
+
+    print("Issuing variant %s: %s" % (i, v))
+
+    if mode == "ec2":
+        config.AWS_REGION_NAME = AWS_REGIONS[i-offset]
+        config.AWS_KEY_NAME = config_personal.ALL_REGION_AWS_KEY_NAMES[
+            config.AWS_REGION_NAME]
+        config.AWS_IMAGE_ID = config_personal.ALL_REGION_AWS_IMAGE_IDS[
+            config.AWS_REGION_NAME]
+        config.AWS_SECURITY_GROUP_IDS = \
+            config_personal.ALL_REGION_AWS_SECURITY_GROUP_IDS[config.AWS_REGION_NAME]
+
+    now = datetime.datetime.now(dateutil.tz.tzlocal())
+    timestamp = now.strftime('%Y_%m_%d_%H_%M_%S')
 
     run_experiment_lite(
         gen_run_task(v["baseline"]),
         exp_prefix=exp_prefix,
+        exp_name="%s_%s_%04d" % (exp_prefix, timestamp, i),
         # Number of parallel workers for sampling
         n_parallel=1,  # not used for tf implementation
         # Only keep the snapshot parameters for the last iteration
@@ -128,7 +156,8 @@ for v in variants:
         seed=v["seed"],
         # mode="local",
         # mode="ec2",
-        mode="local_docker",
+        mode=mode,
+        # mode="local_docker",
         variant=v,
         # plot=True,
         # terminate_machine=False,
