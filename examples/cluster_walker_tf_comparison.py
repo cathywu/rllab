@@ -22,26 +22,27 @@ from rllab.misc.instrument import VariantGenerator, variant
 from rllab import config
 from rllab import config_personal
 
-exp_prefix = "cluster_Walker2d_comparison"
-mode = 'ec2'
+debug = False
+
+exp_prefix = "cluster-Walker2d-comparison-v4" if not debug \
+    else "cluster-multiagent-debug"
+mode = 'ec2' if not debug else 'local'  # 'local_docker', 'ec2', 'local'
+max_path_length = 1000
+n_itr = 1000 if not debug else 2
+
+# Index among variants to start at
+offset = 7  # for GMLP-B # 3 for AD-GMLP-B
 
 class VG(VariantGenerator):
 
     @variant
-    def step_size(self):
-        return [0.01] # , 0.05, 0.1]
-
-    @variant
-    def seed(self):
-        return [1] #, 11, 21, 31, 41]
-
-    @variant
-    def baseline_mix_fraction(self):
-        return [0.2]  # [0.2, 0.1, 1.0]
-
-    @variant
-    def baseline_include_time(self):
-        return [True, False]
+    def baseline(self):
+        return [
+            # "ActionDependentGaussianMLPBaseline",
+            "GaussianMLPBaseline",
+            "LinearFeatureBaseline",
+            "ActionDependentLinearFeatureBaseline",
+        ]
 
     @variant
     def batch_size(self):
@@ -52,13 +53,20 @@ class VG(VariantGenerator):
         ]
 
     @variant
-    def baseline(self):
-        return [
-            "ActionDependentGaussianMLPBaseline",
-            "GaussianMLPBaseline",
-            "LinearFeatureBaseline",
-            "ActionDependentLinearFeatureBaseline",
-        ]
+    def step_size(self):
+        return [0.01] # , 0.05, 0.1]
+
+    @variant
+    def baseline_mix_fraction(self):
+        return [0.2]  # [0.2, 0.1, 1.0]
+
+    @variant
+    def baseline_include_time(self):
+        return [True, False]
+
+    @variant
+    def seed(self):
+        return [1, 11, 21, 31, 41]
 
 
 def gen_run_task(baseline_cls):
@@ -77,8 +85,8 @@ def gen_run_task(baseline_cls):
 
         baseline_args = {
             'env_spec': env.spec,
-            'mix_fraction': v["baseline_mix_fraction"],
-            'include_time': v["baseline_include_time"],
+            'mix_fraction': vv["baseline_mix_fraction"],
+            'include_time': vv["baseline_include_time"],
         }
         if baseline_cls == "ActionDependentGaussianMLPBaseline":
             baseline = ActionDependentGaussianMLPBaseline(**baseline_args)
@@ -100,7 +108,7 @@ def gen_run_task(baseline_cls):
             env=env,
             policy=policy,
             baseline=baseline,
-            batch_size=v['batch_size'],
+            batch_size=vv['batch_size'],
             max_path_length=env.horizon,
             n_itr=1000, # 800, # 1000
             discount=0.995,
@@ -118,7 +126,7 @@ def gen_run_task(baseline_cls):
 
 variants = VG().variants()
 
-offset = 0  # Index among variants to start at
+SERVICE_LIMIT = 20
 AWS_REGIONS = [x for x in config_personal.ALL_REGION_AWS_KEY_NAMES.keys()]
 
 for i, v in enumerate(variants):
@@ -126,13 +134,13 @@ for i, v in enumerate(variants):
     if i < offset:
         continue
 
-    if mode == "ec2" and i - offset >= len(AWS_REGIONS):
+    if mode == "ec2" and i - offset >= len(AWS_REGIONS) * SERVICE_LIMIT:
         sys.exit()
 
     print("Issuing variant %s: %s" % (i, v))
 
     if mode == "ec2":
-        config.AWS_REGION_NAME = AWS_REGIONS[i-offset]
+        config.AWS_REGION_NAME = AWS_REGIONS[(i-offset) % len(AWS_REGIONS)]
         config.AWS_KEY_NAME = config_personal.ALL_REGION_AWS_KEY_NAMES[
             config.AWS_REGION_NAME]
         config.AWS_IMAGE_ID = config_personal.ALL_REGION_AWS_IMAGE_IDS[
@@ -146,7 +154,7 @@ for i, v in enumerate(variants):
     run_experiment_lite(
         gen_run_task(v["baseline"]),
         exp_prefix=exp_prefix,
-        exp_name="%s_%s_%04d" % (exp_prefix, timestamp, i),
+        # exp_name="%s_%s_%04d" % (exp_prefix, timestamp, i),
         # Number of parallel workers for sampling
         n_parallel=1,  # not used for tf implementation
         # Only keep the snapshot parameters for the last iteration
@@ -162,4 +170,5 @@ for i, v in enumerate(variants):
         # plot=True,
         # terminate_machine=False,
     )
-    # sys.exit()
+    if debug:
+        sys.exit()

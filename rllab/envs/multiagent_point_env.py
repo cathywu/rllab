@@ -17,7 +17,7 @@ class MultiagentPointEnv(Env):
 
     @property
     def action_space(self):
-        return Box(low=-0.1, high=0.1, shape=(self.d, self.k))
+        return Box(low=-0.1, high=0.1, shape=(1, self.d * self.k))
 
     @property
     def horizon(self):
@@ -29,7 +29,7 @@ class MultiagentPointEnv(Env):
         return observation
 
     def step(self, action):
-        self._state = self._state + action
+        self._state = self._state + np.reshape(action, (self.d, self.k))
         # TODO(cathywu) slice the actions approrpriately
         reward = - np.sum(np.sqrt(np.sum(np.square(self._state), axis=0)))
         # x, y = self._state
