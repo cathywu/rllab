@@ -221,6 +221,14 @@ class GaussianMLPRegressor(LayersPowered, Serializable):
         """
         return self._f_predict(xs)
 
+    def predict_n(self, xs):
+        """
+        Return the maximum likelihood estimate of the predicted y.
+        :param xs:
+        :return:
+        """
+        return self.predict(xs)
+
     def sample_predict(self, xs):
         """
         Sample one possible output from the prediction distribution.
