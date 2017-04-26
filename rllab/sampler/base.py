@@ -199,6 +199,7 @@ class BaseSampler(Sampler):
         if isinstance(ev, list):
             for k in range(len(ev)):
                 logger.record_tabular('ExplainedVariance[%s]' % k, ev[k])
+            logger.record_tabular('ExplainedVariance', np.mean(ev))
         else:
             logger.record_tabular('ExplainedVariance', ev)
         logger.record_tabular('NumTrajs', len(paths))
