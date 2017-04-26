@@ -17,7 +17,6 @@ from rllab.envs.normalize_obs import NormalizeObs
 from sandbox.rocky.tf.envs.base import TfEnv
 from sandbox.rocky.tf.policies.gaussian_mlp_policy import GaussianMLPPolicy
 from rllab.misc.instrument import run_experiment_lite
-from rllab.envs.multiagent_point_env import MultiagentPointEnv
 
 from rllab.misc.instrument import VariantGenerator, variant
 from rllab import config
@@ -25,26 +24,24 @@ from rllab import config_personal
 
 debug = False
 
-exp_prefix = "cluster-multiagent-v8" if not debug \
+exp_prefix = "cluster-multiagent-v10" if not debug \
     else "cluster-multiagent-debug"
 mode = 'ec2' if not debug else 'local'  # 'local_docker', 'ec2', 'local'
-max_path_length = 1000
+max_path_length = 30
 n_itr = 1000 if not debug else 2
 
 # Index among variants to start at
-offset = 33  # for [6, 50], mix [0.2, 1.0]
-# 21 for d=10  # 18 for GaussianMLP baseline  # 33 for ADGMLPB
+offset = 18  # 9
 
 
 class VG(VariantGenerator):
-
     @variant
     def baseline(self):
         return [
             "ActionDependentGaussianMLPBaseline",
             "GaussianMLPBaseline",
-            # "LinearFeatureBaseline",
-            # "ActionDependentLinearFeatureBaseline",
+            "LinearFeatureBaseline",
+            "ActionDependentLinearFeatureBaseline",
         ]
 
     @variant
@@ -54,13 +51,14 @@ class VG(VariantGenerator):
     @variant
     def d(self):
         # FIXME(cathywu) revert to [1]
-        return [1, 2]  # , 2, 10] # [1, 2, 10]
+        return [1]  # [1, 2]  # , 2, 10] # [1, 2, 10]
 
     @variant
     def batch_size(self):
         return [
             # 1000,
-            5000,
+            # 5000,
+            10000,
             # 25000,
         ]
 
@@ -70,23 +68,39 @@ class VG(VariantGenerator):
 
     @variant
     def baseline_mix_fraction(self):
-        return [1.0, 0.2]  # [0.2, 0.1, 1.0]
+        return [1.0]  #, 0.1]  # [0.2, 0.1, 1.0]
 
     @variant
     def baseline_include_time(self):
-        return [True, False]
+        return [True]  # , False]
 
     @variant
     def seed(self):
-        return [1, 11]  #, 21, 31, 41]
+        return [1, 11]  # , 21, 31, 41]
+
+    @variant
+    def collisions(self):
+        return [True]  # [False, True]
+
+    @variant
+    def env(self):
+        return ["NoStateEnv", "MultiagentPointEnv", "MultiactionPointEnv"]
 
 
 def gen_run_task(baseline_cls):
-
     def run_task(vv):
+        if vv['env'] == "MultiagentPointEnv":
+            from rllab.envs.multiagent_point_env import MultiagentPointEnv as \
+                MEnv
+        elif vv['env'] == "MultiactionPointEnv":
+            from rllab.envs.multiaction_point_env import MultiactionPointEnv \
+                as MEnv
+        elif vv['env'] == "NoStateEnv":
+            from rllab.envs.no_state_env import NoStateEnv as MEnv
         # running average normalization
-        env = TfEnv(NormalizeObs(MultiagentPointEnv(d=vv['d'], k=vv['k'],
-                                                    horizon=max_path_length),
+        env = TfEnv(NormalizeObs(MEnv(d=vv['d'], k=vv['k'],
+                                      horizon=max_path_length, collisions=vv[
+                'collisions']),
                                  clip=5))
 
         # exponential weighting normalization
@@ -126,7 +140,7 @@ def gen_run_task(baseline_cls):
             baseline=baseline,
             batch_size=vv['batch_size'],
             max_path_length=max_path_length,
-            n_itr=n_itr, # 1000
+            n_itr=n_itr,  # 1000
             discount=0.995,
             step_size=vv["step_size"],
             sample_backups=0,
@@ -158,13 +172,14 @@ for i, v in enumerate(variants):
     print("Issuing variant %s: %s" % (i, v))
 
     if mode == "ec2":
-        config.AWS_REGION_NAME = AWS_REGIONS[(i-offset) % len(AWS_REGIONS)]
+        config.AWS_REGION_NAME = AWS_REGIONS[(i - offset) % len(AWS_REGIONS)]
         config.AWS_KEY_NAME = config_personal.ALL_REGION_AWS_KEY_NAMES[
             config.AWS_REGION_NAME]
         config.AWS_IMAGE_ID = config_personal.ALL_REGION_AWS_IMAGE_IDS[
             config.AWS_REGION_NAME]
         config.AWS_SECURITY_GROUP_IDS = \
-            config_personal.ALL_REGION_AWS_SECURITY_GROUP_IDS[config.AWS_REGION_NAME]
+            config_personal.ALL_REGION_AWS_SECURITY_GROUP_IDS[
+                config.AWS_REGION_NAME]
 
     now = datetime.datetime.now(dateutil.tz.tzlocal())
     timestamp = now.strftime('%Y_%m_%d_%H_%M_%S')
