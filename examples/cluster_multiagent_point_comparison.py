@@ -24,14 +24,15 @@ from rllab import config_personal
 
 debug = False
 
-exp_prefix = "cluster-multiagent-v10" if not debug \
+exp_prefix = "cluster-multiagent-v11" if not debug \
     else "cluster-multiagent-debug"
 mode = 'ec2' if not debug else 'local'  # 'local_docker', 'ec2', 'local'
 max_path_length = 30
-n_itr = 1000 if not debug else 2
+n_itr = 600 if not debug else 2
+holdout_factor = 0.3
 
 # Index among variants to start at
-offset = 18  # 9
+offset = 0  # 18
 
 
 class VG(VariantGenerator):
@@ -46,19 +47,18 @@ class VG(VariantGenerator):
 
     @variant
     def k(self):
-        return [6, 50]  # , 10, 100, 1000]
+        return [6, 50, 200]  # , 10, 100, 1000]
 
     @variant
     def d(self):
-        # FIXME(cathywu) revert to [1]
-        return [1]  # [1, 2]  # , 2, 10] # [1, 2, 10]
+        return [1]  # [1, 2] # [1, 2, 10]
 
     @variant
     def batch_size(self):
         return [
-            # 1000,
-            # 5000,
-            10000,
+            1000 / (1.0-holdout_factor),
+            5000 / (1.0-holdout_factor),
+            # 10000 / (1.0-holdout_factor),
             # 25000,
         ]
 
@@ -76,7 +76,7 @@ class VG(VariantGenerator):
 
     @variant
     def seed(self):
-        return [1, 11]  # , 21, 31, 41]
+        return [1, 11, 21]  # , 21, 31, 41]
 
     @variant
     def collisions(self):
@@ -84,19 +84,20 @@ class VG(VariantGenerator):
 
     @variant
     def env(self):
-        return ["NoStateEnv", "MultiagentPointEnv", "MultiactionPointEnv"]
+        return ["OneStepNoStateEnv", "NoStateEnv", "MultiagentPointEnv",
+                "MultiactionPointEnv"]
 
 
 def gen_run_task(baseline_cls):
     def run_task(vv):
         if vv['env'] == "MultiagentPointEnv":
-            from rllab.envs.multiagent_point_env import MultiagentPointEnv as \
-                MEnv
+            from rllab.envs.multiagent_point_env import MultiagentPointEnv as MEnv
         elif vv['env'] == "MultiactionPointEnv":
-            from rllab.envs.multiaction_point_env import MultiactionPointEnv \
-                as MEnv
+            from rllab.envs.multiaction_point_env import MultiactionPointEnv as MEnv
         elif vv['env'] == "NoStateEnv":
             from rllab.envs.no_state_env import NoStateEnv as MEnv
+        elif vv['env'] == "OneStepNoStateEnv":
+            from rllab.envs.one_step_no_state_env import OneStepNoStateEnv as MEnv
         # running average normalization
         env = TfEnv(NormalizeObs(MEnv(d=vv['d'], k=vv['k'],
                                       horizon=max_path_length, collisions=vv[
@@ -118,6 +119,9 @@ def gen_run_task(baseline_cls):
             'env_spec': env.spec,
             'mix_fraction': vv["baseline_mix_fraction"],
             'include_time': vv["baseline_include_time"],
+            'regressor_args': {
+                'holdout_factor': holdout_factor,
+            }
         }
         if baseline_cls == "ActionDependentGaussianMLPBaseline":
             baseline = ActionDependentGaussianMLPBaseline(**baseline_args)
@@ -156,8 +160,9 @@ def gen_run_task(baseline_cls):
 
 variants = VG().variants()
 
-SERVICE_LIMIT = 20
-AWS_REGIONS = [x for x in config_personal.ALL_REGION_AWS_KEY_NAMES.keys()]
+SERVICE_LIMIT = 140
+# AWS_REGIONS = [x for x in config_personal.ALL_REGION_AWS_KEY_NAMES.keys()]
+AWS_REGIONS = ['us-east-1', 'us-east-2', 'us-west-1', 'us-west-2']
 shuffle(AWS_REGIONS)
 print("AWS REGIONS order", AWS_REGIONS)
 

@@ -36,7 +36,8 @@ class GaussianMLPRegressor(LayersPowered, Serializable):
             std_nonlinearity=None,
             normalize_inputs=True,
             normalize_outputs=True,
-            subsample_factor=1.0
+            subsample_factor=1.0,
+            holdout_factor=0.0
     ):
         """
         :param input_shape: Shape of the input data.
@@ -175,12 +176,22 @@ class GaussianMLPRegressor(LayersPowered, Serializable):
             self._x_std_var = x_std_var
             self._y_mean_var = y_mean_var
             self._y_std_var = y_std_var
+            self._holdout_factor = holdout_factor
 
     def fit(self, xs, ys):
         if self._subsample_factor < 1:
             num_samples_tot = xs.shape[0]
             idx = np.random.randint(0, num_samples_tot, int(num_samples_tot * self._subsample_factor))
             xs, ys = xs[idx], ys[idx]
+
+        if self._holdout_factor > 0.0:
+            ntot = xs.shape[0]
+            nholdout = int(self._holdout_factor * ntot)
+            hxs, hys = xs[ntot-nholdout:], ys[ntot-nholdout:]
+            xs, ys = xs[:-nholdout], ys[:-nholdout]
+            assert xs.shape[0] + hxs.shape[0] == ntot
+        else:
+            hxs, hys = [], []
 
         sess = tf.get_default_session()
         if self._normalize_inputs:
@@ -198,20 +209,31 @@ class GaussianMLPRegressor(LayersPowered, Serializable):
         if self._use_trust_region:
             old_means, old_log_stds = self._f_pdists(xs)
             inputs = [xs, ys, old_means, old_log_stds]
+            inputs_holdout = [hxs, hys, old_means, old_log_stds]
         else:
             inputs = [xs, ys]
+            inputs_holdout = [hxs, hys]
         loss_before = self._optimizer.loss(inputs)
+        loss_before_holdout = self._optimizer.loss(inputs_holdout) if \
+            self._holdout_factor > 0 else None
         if self._name:
             prefix = self._name + "_"
         else:
             prefix = ""
         logger.record_tabular(prefix + 'LossBefore', loss_before)
+        logger.record_tabular(prefix + 'LossBeforeHoldout', loss_before_holdout)
         self._optimizer.optimize(inputs)
         loss_after = self._optimizer.loss(inputs)
+        loss_after_holdout = self._optimizer.loss(inputs_holdout) if \
+            self._holdout_factor > 0 else None
         logger.record_tabular(prefix + 'LossAfter', loss_after)
+        logger.record_tabular(prefix + 'LossAfterHoldout', loss_after_holdout)
         if self._use_trust_region:
             logger.record_tabular(prefix + 'MeanKL', self._optimizer.constraint_val(inputs))
         logger.record_tabular(prefix + 'dLoss', loss_before - loss_after)
+        if self._holdout_factor > 0:
+            logger.record_tabular(prefix + 'dLossHoldout', loss_before_holdout -
+                              loss_after_holdout)
 
     def predict(self, xs):
         """
