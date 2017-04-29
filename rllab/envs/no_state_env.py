@@ -33,10 +33,11 @@ class NoStateEnv(Env):
     def step(self, action):
         action_mat = np.reshape(action, (self.d, self.k))
 
-        reward = - np.sum(np.sqrt(np.sum(np.square(action_mat), axis=0))) - \
-                 NOT_DONE_PENALTY
+        reward = - np.sum(np.square(action)) - NOT_DONE_PENALTY
+        # reward = - np.sum(np.sqrt(np.sum(np.square(action_mat), axis=0))) - \
+        #          NOT_DONE_PENALTY
 
-        done = np.all(np.abs(action_mat) < 0.01)
+        done = np.all(np.sum(np.square(action_mat), axis=0) < 0.01)
         next_observation = np.copy(self._state)
         return Step(observation=next_observation, reward=reward, done=done)
 

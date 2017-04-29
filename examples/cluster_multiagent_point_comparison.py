@@ -11,6 +11,7 @@ from rllab.baselines.action_dependent_linear_feature_baseline import \
     ActionDependentLinearFeatureBaseline
 from rllab.baselines.action_dependent_gaussian_mlp_baseline import \
     ActionDependentGaussianMLPBaseline
+from sandbox.rocky.tf.baselines.zero_baseline import ZeroBaseline
 
 from rllab.envs.normalize_obs import NormalizeObs
 # from rllab.envs.normalized_env import normalize
@@ -24,7 +25,7 @@ from rllab import config_personal
 
 debug = False
 
-exp_prefix = "cluster-multiagent-v11" if not debug \
+exp_prefix = "cluster-multiagent-v12" if not debug \
     else "cluster-multiagent-debug"
 mode = 'ec2' if not debug else 'local'  # 'local_docker', 'ec2', 'local'
 max_path_length = 30
@@ -39,15 +40,16 @@ class VG(VariantGenerator):
     @variant
     def baseline(self):
         return [
-            "ActionDependentGaussianMLPBaseline",
-            "GaussianMLPBaseline",
+            "ZeroBaseline",
+            # "ActionDependentGaussianMLPBaseline",
+            # "GaussianMLPBaseline",
             "LinearFeatureBaseline",
             "ActionDependentLinearFeatureBaseline",
         ]
 
     @variant
     def k(self):
-        return [6, 50, 200]  # , 10, 100, 1000]
+        return [6, 50, 200, 1000, 2000]  # [6, 50, 200]  # , 10, 100, 1000]
 
     @variant
     def d(self):
@@ -56,8 +58,10 @@ class VG(VariantGenerator):
     @variant
     def batch_size(self):
         return [
+            100 / (1.0-holdout_factor),
+            500 / (1.0-holdout_factor),
             1000 / (1.0-holdout_factor),
-            5000 / (1.0-holdout_factor),
+            # 5000 / (1.0-holdout_factor),
             # 10000 / (1.0-holdout_factor),
             # 25000,
         ]
@@ -100,8 +104,8 @@ def gen_run_task(baseline_cls):
             from rllab.envs.one_step_no_state_env import OneStepNoStateEnv as MEnv
         # running average normalization
         env = TfEnv(NormalizeObs(MEnv(d=vv['d'], k=vv['k'],
-                                      horizon=max_path_length, collisions=vv[
-                'collisions']),
+                                      horizon=max_path_length,
+                                      collisions=vv['collisions']),
                                  clip=5))
 
         # exponential weighting normalization
@@ -131,6 +135,8 @@ def gen_run_task(baseline_cls):
             baseline = GaussianMLPBaseline(**baseline_args)
         elif baseline_cls == "LinearFeatureBaseline":
             baseline = LinearFeatureBaseline(**baseline_args)
+        elif baseline_cls == "ZeroBaseline":
+            baseline = ZeroBaseline(**baseline_args)
         action_dependent = True if (hasattr(baseline,
                                             "action_dependent") and baseline.action_dependent is True) else False
         if action_dependent:
@@ -152,6 +158,7 @@ def gen_run_task(baseline_cls):
             gae_lambda=0.97,
             # Uncomment both lines (this and the plot parameter below) to enable plotting
             # plot=True,
+            center_adv=False,  # This disables whitening of advantages
         )
         algo.train()
 

@@ -39,13 +39,15 @@ class MultiagentPointEnv(Env):
         return observation
 
     def step(self, action):
-        self._state = self._state + np.reshape(action, (self.d, self.k))
+        action_mat = np.reshape(action, (self.d, self.k))
+        self._state = self._state + action_mat
 
-        reward = - np.sum(np.sqrt(np.sum(np.square(self._state), axis=0))) - \
-                 NOT_DONE_PENALTY
+        reward = - np.sum(np.square(self._state)) - NOT_DONE_PENALTY
+        # reward = - np.sum(np.sqrt(np.sum(np.square(self._state), axis=0))) - \
+        #          NOT_DONE_PENALTY
 
         collision = is_collision(self._state) if self._collisions else False
-        done = np.all(np.abs(self._state) < 0.01) or collision
+        done = np.all(np.sum(np.square(action_mat), axis=0) < 0.01) or collision
         next_observation = np.copy(self._state)
         return Step(observation=next_observation, reward=reward, done=done)
 

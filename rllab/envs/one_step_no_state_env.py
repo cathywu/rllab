@@ -17,7 +17,7 @@ class OneStepNoStateEnv(Env):
 
     @property
     def action_space(self):
-        return Box(low=-0.1, high=0.1, shape=(1, self.d * self.k))
+        return Box(low=-10, high=10, shape=(1, self.d * self.k))
 
     @property
     def horizon(self):
@@ -29,9 +29,7 @@ class OneStepNoStateEnv(Env):
         return observation
 
     def step(self, action):
-        action_mat = np.reshape(action, (self.d, self.k))
-        reward = - np.sum(np.sqrt(np.sum(np.square(action_mat), axis=0)))
-
+        reward = - np.sum(np.square(action))
         done = True  # 1-step env
         next_observation = np.copy(self._state)
         return Step(observation=next_observation, reward=reward, done=done)

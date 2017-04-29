@@ -31,14 +31,15 @@ class MultiactionPointEnv(Env):
         return observation
 
     def step(self, action):
-        overall_action = np.expand_dims(np.sum(np.reshape(action, (self.d,
-                   self.k)), axis=1), axis=-1)
+        action_mat = np.reshape(action, (self.d, self.k))
+        overall_action = np.expand_dims(np.sum(action_mat, axis=1), axis=-1)
         self._state = self._state + overall_action
 
-        reward = - np.sum(np.sqrt(np.sum(np.square(self._state), axis=0))) - \
-                 NOT_DONE_PENALTY
+        reward = - np.sum(np.square(self._state)) - NOT_DONE_PENALTY
+        # reward = - np.sum(np.sqrt(np.sum(np.square(self._state), axis=0))) - \
+        #          NOT_DONE_PENALTY
 
-        done = np.all(np.abs(self._state) < 0.01)
+        done = np.all(np.sum(np.square(action_mat), axis=0) < 0.01)
         next_observation = np.copy(self._state)
         return Step(observation=next_observation, reward=reward, done=done)
 

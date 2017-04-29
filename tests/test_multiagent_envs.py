@@ -7,6 +7,7 @@ from sandbox.rocky.tf.envs.base import TfEnv
 from rllab.envs.multiagent_point_env import MultiagentPointEnv
 from rllab.envs.multiaction_point_env import MultiactionPointEnv
 from rllab.envs.no_state_env import NoStateEnv
+from rllab.envs.one_step_no_state_env import OneStepNoStateEnv
 from sandbox.rocky.tf.algos.trpo import TRPO
 from nose2 import tools
 
@@ -19,6 +20,8 @@ envs = [
     (MultiactionPointEnv, 2, 6, False),
     (NoStateEnv, 1, 6, False),
     (NoStateEnv, 2, 6, False),
+    (OneStepNoStateEnv, 1, 6, False),
+    (OneStepNoStateEnv, 2, 6, False),
 ]
 max_path_length = 30
 
@@ -36,7 +39,7 @@ def test_multiagent_envs(env_cls, d, k, collisions):
         env=env,
         policy=policy,
         baseline=baseline,
-        batch_size=5000,
+        batch_size=100,
         max_path_length=max_path_length,
         n_itr=2,
         discount=0.99,
