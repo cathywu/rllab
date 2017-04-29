@@ -7,7 +7,7 @@ import numpy as np
 
 class ActionDependentLinearFeatureBaseline(ActionDependentBaseline):
     def __init__(self, env_spec, reg_coeff=1e-5,
-                 mix_fraction=1.0,  include_time=True):
+                 mix_fraction=1.0,  include_time=True, **kwargs):
         super(ActionDependentLinearFeatureBaseline, self).__init__(env_spec)
         self._sub_baselines = [LinearFeatureBaseline(env_spec,
                                                      reg_coeff=reg_coeff,

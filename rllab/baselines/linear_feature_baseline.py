@@ -14,6 +14,7 @@ class LinearFeatureBaseline(Baseline):
             mix_fraction=1.,
             include_time=True,
             action_dependent=False,
+            **kwargs
     ):
         self.observation_space = env_spec.observation_space
         self.mix_fraction = mix_fraction
