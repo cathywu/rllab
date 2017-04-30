@@ -7,7 +7,7 @@ from rllab.baselines.linear_feature_baseline import LinearFeatureBaseline
 from sandbox.rocky.tf.baselines.gaussian_mlp_baseline import GaussianMLPBaseline
 from sandbox.rocky.tf.policies.gaussian_mlp_policy import GaussianMLPPolicy
 from sandbox.rocky.tf.envs.base import TfEnv
-from examples.multiagent_point_env import MultiagentPointEnv
+from rllab.envs.multiagent_point_env import MultiagentPointEnv
 from sandbox.rocky.tf.algos.trpo import TRPO
 from nose2 import tools
 
@@ -32,7 +32,7 @@ def test_baseline(baseline_cls):
         env=env,
         policy=policy,
         baseline=baseline,
-        batch_size=5000,
+        batch_size=100,
         max_path_length=max_path_length,
         n_itr=2,
         discount=0.99,

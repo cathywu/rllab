@@ -39,7 +39,7 @@ class MultiactionPointEnv(Env):
         # reward = - np.sum(np.sqrt(np.sum(np.square(self._state), axis=0))) - \
         #          NOT_DONE_PENALTY
 
-        done = np.all(np.sum(np.square(action_mat), axis=0) < 0.01)
+        done = np.all(np.abs(self._state) < 0.01)
         next_observation = np.copy(self._state)
         return Step(observation=next_observation, reward=reward, done=done)
 

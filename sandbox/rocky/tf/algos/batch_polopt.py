@@ -36,6 +36,7 @@ class BatchPolopt(RLAlgorithm):
             sampler_cls=None,
             sampler_args=None,
             force_batch_sampler=False,
+            extra_baselines=None,
             **kwargs
     ):
         """
@@ -62,6 +63,7 @@ class BatchPolopt(RLAlgorithm):
         self.env = env
         self.policy = policy
         self.baseline = baseline
+        self.extra_baselines = extra_baselines
         self.scope = scope
         self.n_itr = n_itr
         self.start_itr = start_itr

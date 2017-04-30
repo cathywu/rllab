@@ -18,6 +18,7 @@ from rllab.envs.normalize_obs import NormalizeObs
 from sandbox.rocky.tf.envs.base import TfEnv
 from sandbox.rocky.tf.policies.gaussian_mlp_policy import GaussianMLPPolicy
 from rllab.misc.instrument import run_experiment_lite
+from rllab.baselines import util
 
 from rllab.misc.instrument import VariantGenerator, variant
 from rllab import config
@@ -25,10 +26,10 @@ from rllab import config_personal
 
 debug = False
 
-exp_prefix = "cluster-multiagent-v12" if not debug \
+exp_prefix = "cluster-multiagent-v14" if not debug \
     else "cluster-multiagent-debug"
 mode = 'ec2' if not debug else 'local'  # 'local_docker', 'ec2', 'local'
-max_path_length = 30
+max_path_length = 50
 n_itr = 600 if not debug else 2
 holdout_factor = 0.3
 
@@ -40,16 +41,18 @@ class VG(VariantGenerator):
     @variant
     def baseline(self):
         return [
-            "ZeroBaseline",
+            "ActionDependentLinearFeatureBaseline",
+            # "LinearFeatureBaseline",
+            # "ZeroBaseline",
             # "ActionDependentGaussianMLPBaseline",
             # "GaussianMLPBaseline",
-            "LinearFeatureBaseline",
-            "ActionDependentLinearFeatureBaseline",
         ]
 
     @variant
     def k(self):
-        return [6, 50, 200, 1000, 2000]  # [6, 50, 200]  # , 10, 100, 1000]
+        return [6, 50, 200, 500, 1000]  # [6, 50, 200]  # , 10,
+        # 100,
+        # 1000]
 
     @variant
     def d(self):
@@ -61,7 +64,7 @@ class VG(VariantGenerator):
             100 / (1.0-holdout_factor),
             500 / (1.0-holdout_factor),
             1000 / (1.0-holdout_factor),
-            # 5000 / (1.0-holdout_factor),
+            5000 / (1.0-holdout_factor),
             # 10000 / (1.0-holdout_factor),
             # 25000,
         ]
@@ -80,7 +83,7 @@ class VG(VariantGenerator):
 
     @variant
     def seed(self):
-        return [1, 11, 21]  # , 21, 31, 41]
+        return [1, 11, 21, 31, 41]  # 1, 21, 31, 41]
 
     @variant
     def collisions(self):
@@ -88,8 +91,12 @@ class VG(VariantGenerator):
 
     @variant
     def env(self):
-        return ["OneStepNoStateEnv", "NoStateEnv", "MultiagentPointEnv",
-                "MultiactionPointEnv"]
+        return [
+            "OneStepNoStateEnv",
+            "NoStateEnv",
+            "MultiagentPointEnv",
+            "MultiactionPointEnv",
+        ]
 
 
 def gen_run_task(baseline_cls):
@@ -137,8 +144,7 @@ def gen_run_task(baseline_cls):
             baseline = LinearFeatureBaseline(**baseline_args)
         elif baseline_cls == "ZeroBaseline":
             baseline = ZeroBaseline(**baseline_args)
-        action_dependent = True if (hasattr(baseline,
-                                            "action_dependent") and baseline.action_dependent is True) else False
+        action_dependent = util.is_action_dependent(baseline)
         if action_dependent:
             from sandbox.rocky.tf.algos.trpo_action import TRPOAction as TRPO
         else:
@@ -159,6 +165,8 @@ def gen_run_task(baseline_cls):
             # Uncomment both lines (this and the plot parameter below) to enable plotting
             # plot=True,
             center_adv=False,  # This disables whitening of advantages
+            extra_baselines=[LinearFeatureBaseline(**baseline_args),
+                             ZeroBaseline(**baseline_args)],
         )
         algo.train()
 

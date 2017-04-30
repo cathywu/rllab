@@ -1,10 +1,13 @@
-from rllab.envs.base import Env
-from sandbox.rocky.tf.spaces.box import Box
-from rllab.envs.base import Step
 import numpy as np
 import scipy
 
+from rllab.envs.base import Env
+from sandbox.rocky.tf.spaces.box import Box
+from rllab.envs.base import Step
+import rllab.misc.logger as logger
+
 NOT_DONE_PENALTY = 1
+COLLISION_PENALTY = 10
 
 def is_collision(x):
     # https://stackoverflow.com/questions/29608987/
@@ -42,13 +45,23 @@ class MultiagentPointEnv(Env):
         action_mat = np.reshape(action, (self.d, self.k))
         self._state = self._state + action_mat
 
-        reward = - np.sum(np.square(self._state)) - NOT_DONE_PENALTY
+        collision = is_collision(self._state) if self._collisions else False
+        # done = collision
+        # done = np.all(np.abs(self._state) < 0.02)
+        # done = np.all(np.abs(self._state) < 0.01) or collision
+        done = False
+
+        reward = - np.sum(np.square(self._state)) - COLLISION_PENALTY * collision
+        # reward = min(np.sum(-np.log(np.abs(self._state))), 100) + 1
+        #                 - COLLISION_PENALTY * collision + done * 50
+        #          - NOT_DONE_PENALTY
         # reward = - np.sum(np.sqrt(np.sum(np.square(self._state), axis=0))) - \
         #          NOT_DONE_PENALTY
 
-        collision = is_collision(self._state) if self._collisions else False
-        done = np.all(np.sum(np.square(action_mat), axis=0) < 0.01) or collision
         next_observation = np.copy(self._state)
+        logger.log('done: {}, collision: {}, reward: {}'.format(done,
+                                                                collision,
+                                                                reward))
         return Step(observation=next_observation, reward=reward, done=done)
 
     def render(self):
