@@ -1,6 +1,7 @@
 import datetime
 import dateutil.tz
 import sys
+from random import shuffle
 
 import tensorflow as tf
 
@@ -24,14 +25,19 @@ from rllab import config_personal
 
 debug = False
 
-exp_prefix = "cluster-Walker2d-comparison-v4" if not debug \
-    else "cluster-multiagent-debug"
+# exp_prefix = "cluster-Walker-comparison-v5" if not debug \
+#     else "cluster-mujoco-debug"
+exp_prefix = "cluster-HumanoidStandup-comparison-v0" if not debug \
+    else "cluster-mujoco-debug"
 mode = 'ec2' if not debug else 'local'  # 'local_docker', 'ec2', 'local'
-max_path_length = 1000
 n_itr = 1000 if not debug else 2
+record_video = False if not debug else True
+record_log = False if not debug else True
+holdout_factor = 0.3
 
 # Index among variants to start at
-offset = 7  # for GMLP-B # 3 for AD-GMLP-B
+offset = 0
+
 
 class VG(VariantGenerator):
 
@@ -39,22 +45,22 @@ class VG(VariantGenerator):
     def baseline(self):
         return [
             # "ActionDependentGaussianMLPBaseline",
-            "GaussianMLPBaseline",
-            "LinearFeatureBaseline",
+            # "GaussianMLPBaseline",
             "ActionDependentLinearFeatureBaseline",
+            "LinearFeatureBaseline",
         ]
 
     @variant
     def batch_size(self):
         return [
-            # 1000,
-            5000,
-            # 25000,
+            # 1000 / (1.0-holdout_factor),
+            10000 / (1.0-holdout_factor),
+            25000 / (1.0-holdout_factor),
         ]
 
     @variant
     def step_size(self):
-        return [0.01] # , 0.05, 0.1]
+        return [0.01]  # , 0.05, 0.1]
 
     @variant
     def baseline_mix_fraction(self):
@@ -72,8 +78,12 @@ class VG(VariantGenerator):
 def gen_run_task(baseline_cls):
 
     def run_task(vv):
-        env = TfEnv(NormalizeObs(GymEnv("Walker2d-v1", force_reset=True,
-                                     record_video=False, record_log=False),
+        # env_name = "Walker2d-v1"
+        env_name = "HumanoidStandup-v1"
+        # env_name = "Humanoid-v1"
+        env = TfEnv(NormalizeObs(GymEnv(env_name, force_reset=True,
+                                     record_video=record_video,
+                                        record_log=record_log),
                           clip=5))
 
         policy = GaussianMLPPolicy(
@@ -87,6 +97,9 @@ def gen_run_task(baseline_cls):
             'env_spec': env.spec,
             'mix_fraction': vv["baseline_mix_fraction"],
             'include_time': vv["baseline_include_time"],
+            'regressor_args': {
+                'holdout_factor': holdout_factor,
+            }
         }
         if baseline_cls == "ActionDependentGaussianMLPBaseline":
             baseline = ActionDependentGaussianMLPBaseline(**baseline_args)
@@ -110,7 +123,7 @@ def gen_run_task(baseline_cls):
             baseline=baseline,
             batch_size=vv['batch_size'],
             max_path_length=env.horizon,
-            n_itr=1000, # 800, # 1000
+            n_itr=n_itr, # 800, # 1000
             discount=0.995,
             step_size=vv["step_size"],
             sample_backups=0,
@@ -126,8 +139,11 @@ def gen_run_task(baseline_cls):
 
 variants = VG().variants()
 
-SERVICE_LIMIT = 20
-AWS_REGIONS = [x for x in config_personal.ALL_REGION_AWS_KEY_NAMES.keys()]
+SERVICE_LIMIT = 140
+AWS_REGIONS = ['us-east-1', 'us-east-2', 'us-west-1', 'us-west-2']
+# AWS_REGIONS = [x for x in config_personal.ALL_REGION_AWS_KEY_NAMES.keys()]
+shuffle(AWS_REGIONS)
+print("AWS REGIONS order", AWS_REGIONS)
 
 for i, v in enumerate(variants):
 
