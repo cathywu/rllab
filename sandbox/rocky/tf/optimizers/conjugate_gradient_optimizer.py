@@ -259,6 +259,8 @@ class ConjugateGradientOptimizer(Serializable):
 
         logger.log("computing gradient")
         flat_g = sliced_fun(self._opt_fun["f_grad"], self._num_slices)(inputs, extra_inputs)
+        # TODO(cathywu) REMOVE access to gradient computation for analysis
+        self.flat_g = flat_g
         logger.log("gradient computed")
 
         logger.log("computing descent direction")

@@ -36,22 +36,23 @@ class VectorizedSampler(BaseSampler):
     def shutdown_worker(self):
         self.vec_env.terminate()
 
-    def obtain_samples(self, itr):
+    def obtain_samples(self, itr, max_samples=None, log=True):
         logger.log("Obtaining samples for iteration %d..." % itr)
+        total_samples = self.algo.batch_size if max_samples is None else max_samples
         paths = []
         n_samples = 0
         obses = self.vec_env.reset()
         dones = np.asarray([True] * self.vec_env.num_envs)
         running_paths = [None] * self.vec_env.num_envs
 
-        pbar = ProgBarCounter(self.algo.batch_size)
+        pbar = ProgBarCounter(total_samples)
         policy_time = 0
         env_time = 0
         process_time = 0
 
         policy = self.algo.policy
         import time
-        while n_samples < self.algo.batch_size:
+        while n_samples < total_samples:
             t = time.time()
             policy.reset(dones)
             actions, agent_infos = policy.get_actions(obses)
@@ -101,8 +102,9 @@ class VectorizedSampler(BaseSampler):
 
         pbar.stop()
 
-        logger.record_tabular("PolicyExecTime", policy_time)
-        logger.record_tabular("EnvExecTime", env_time)
-        logger.record_tabular("ProcessExecTime", process_time)
+        if log:
+            logger.record_tabular("PolicyExecTime", policy_time)
+            logger.record_tabular("EnvExecTime", env_time)
+            logger.record_tabular("ProcessExecTime", process_time)
 
         return paths

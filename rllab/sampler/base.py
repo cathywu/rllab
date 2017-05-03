@@ -15,7 +15,7 @@ class Sampler(object):
         """
         raise NotImplementedError
 
-    def obtain_samples(self, itr):
+    def obtain_samples(self, itr, max_samples=None, **kwargs):
         """
         Collect samples for the given iteration number.
         :param itr: Iteration number.
@@ -23,7 +23,7 @@ class Sampler(object):
         """
         raise NotImplementedError
 
-    def process_samples(self, itr, paths):
+    def process_samples(self, itr, paths, **kwargs):
         """
         Return processed sample data (typically a dictionary of concatenated tensors) based on the collected paths.
         :param itr: Iteration number.
@@ -58,13 +58,9 @@ class BaseSampler(Sampler):
             return path_baselines[:-1], deltas
         else:
             nactions = path["actions"].shape[-1]
-            try:
-                path_baselines = np.hstack([path_baseline, np.zeros((nactions, 1))])
-            except ValueError:
-                import ipdb
-                ipdb.set_trace()
-            deltas = (np.tile(path["rewards"], [nactions, 1]) + \
-                      self.algo.discount * path_baselines[:, 1:] - \
+            path_baselines = np.hstack([path_baseline, np.zeros((nactions, 1))])
+            deltas = (np.tile(path["rewards"], [nactions, 1]) +
+                      self.algo.discount * path_baselines[:, 1:] -
                       path_baselines[:, :-1]).T
             return path_baselines[:, :-1], deltas
 
@@ -81,7 +77,7 @@ class BaseSampler(Sampler):
                     np.concatenate([b[k, :] for b in baselines]), returns)
         return ev
 
-    def process_samples(self, itr, paths):
+    def process_samples(self, itr, paths, update_baseline=True, log=True):
         baselines = []
         returns = []
 
@@ -137,6 +133,7 @@ class BaseSampler(Sampler):
         )
 
         if self.algo.extra_baselines is not None:
+            samples_datas = [samples_data]
             n_extra_baselines = len(self.algo.extra_baselines)
             extra_ap_baselines = [0 for _ in range(n_extra_baselines)]
             extra_ev = [0 for _ in range(n_extra_baselines)]
@@ -148,51 +145,68 @@ class BaseSampler(Sampler):
                     extra_ap_baselines[i] = [b.predict(path) for path in paths]
 
                 extra_baselines = []
+                adv_list = []
                 for idx, path in enumerate(paths):
                     path_baseline, deltas = self.process_baselines(b,
                                                                    extra_ap_baselines[i][idx], path)
                     extra_baselines.append(path_baseline)
+                    adv_list.append(special.discount_cumsum(
+                            deltas, self.algo.discount * self.algo.gae_lambda))
+                adv = tensor_utils.concat_tensor_list([a for a in adv_list])
+                samples_datas.append(dict(
+                    observations=observations,
+                    actions=actions,
+                    rewards=rewards,
+                    returns=returns,
+                    advantages=adv,  # the only different part
+                    env_infos=env_infos,
+                    agent_infos=agent_infos,
+                    paths=paths,
+                ))
 
                 extra_ev[i] = self.process_expected_variance(
                     b, extra_baselines, returns)
 
+        if update_baseline:
+            logger.log("fitting baseline...")
+            if hasattr(self.algo.baseline, 'fit_with_samples'):
+                self.algo.baseline.fit_with_samples(paths, samples_data)
+            else:
+                self.algo.baseline.fit(paths)
+            logger.log("fitted")
 
-        logger.log("fitting baseline...")
-        if hasattr(self.algo.baseline, 'fit_with_samples'):
-            self.algo.baseline.fit_with_samples(paths, samples_data)
-        else:
-            self.algo.baseline.fit(paths)
-        logger.log("fitted")
+        if log:
+            logger.record_tabular('Iteration', itr)
+            logger.record_tabular('AverageDiscountedReturn',
+                                  average_discounted_return)
+            logger.record_tabular('AverageReturn', np.mean(undiscounted_returns))
+            if isinstance(ev, list):
+                for k in range(len(ev)):
+                    logger.record_tabular('ExplainedVariance[%s]' % k, ev[k])
+                ev_mean = np.mean(ev)
+                logger.record_tabular('ExplainedVariance', ev_mean)
+            else:
+                logger.record_tabular('ExplainedVariance', ev)
+                ev_mean = ev
+            if self.algo.extra_baselines is not None:
+                for i, b in enumerate(self.algo.extra_baselines):
+                    if isinstance(ev, list):
+                        logger.record_tabular('EV[%s]' % type(b).__name__,
+                                              np.mean(extra_ev[i]))
+                        logger.record_tabular('dEV[%s]' % type(b).__name__,
+                                              np.mean(extra_ev[i]) - ev_mean)
+                    else:
+                        logger.record_tabular('EV[%s]' % type(b).__name__,
+                                              extra_ev[i])
+                        logger.record_tabular('dEV[%s]' % type(b).__name__,
+                                              extra_ev[i] - ev_mean)
+            logger.record_tabular('NumTrajs', len(paths))
+            logger.record_tabular('Entropy', ent)
+            logger.record_tabular('Perplexity', np.exp(ent))
+            logger.record_tabular('StdReturn', np.std(undiscounted_returns))
+            logger.record_tabular('MaxReturn', np.max(undiscounted_returns))
+            logger.record_tabular('MinReturn', np.min(undiscounted_returns))
 
-        logger.record_tabular('Iteration', itr)
-        logger.record_tabular('AverageDiscountedReturn',
-                              average_discounted_return)
-        logger.record_tabular('AverageReturn', np.mean(undiscounted_returns))
-        if isinstance(ev, list):
-            for k in range(len(ev)):
-                logger.record_tabular('ExplainedVariance[%s]' % k, ev[k])
-            ev_mean = np.mean(ev)
-            logger.record_tabular('ExplainedVariance', ev_mean)
-        else:
-            logger.record_tabular('ExplainedVariance', ev)
-            ev_mean = ev
         if self.algo.extra_baselines is not None:
-            for i, b in enumerate(self.algo.extra_baselines):
-                if isinstance(ev, list):
-                    logger.record_tabular('EV[%s]' % type(b).__name__,
-                                          np.mean(extra_ev[i]))
-                    logger.record_tabular('dEV[%s]' % type(b).__name__,
-                                          np.mean(extra_ev[i]) - ev_mean)
-                else:
-                    logger.record_tabular('EV[%s]' % type(b).__name__,
-                                          extra_ev[i])
-                    logger.record_tabular('dEV[%s]' % type(b).__name__,
-                                          extra_ev[i] - ev_mean)
-        logger.record_tabular('NumTrajs', len(paths))
-        logger.record_tabular('Entropy', ent)
-        logger.record_tabular('Perplexity', np.exp(ent))
-        logger.record_tabular('StdReturn', np.std(undiscounted_returns))
-        logger.record_tabular('MaxReturn', np.max(undiscounted_returns))
-        logger.record_tabular('MinReturn', np.min(undiscounted_returns))
-
+            return samples_datas
         return samples_data

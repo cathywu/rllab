@@ -170,6 +170,15 @@ class NPOAction(BatchPolopt):
         logger.log("Computing KL after")
         mean_kl = self.optimizer.constraint_val(all_input_values)
         logger.log("Computing loss after")
+
+        # TODO(cathywu) Use this for computing gradient update from large vs
+        # small batch: compute variance of change in parameters
+        # Get values before
+        x = self.policy.get_param_values()
+        # Do blah blah
+        # Set values back
+        self.policy.set_param_values(x)
+
         loss_after = self.optimizer.loss(all_input_values)
         logger.record_tabular('LossBefore', loss_before)
         logger.record_tabular('LossAfter', loss_after)

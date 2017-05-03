@@ -1,11 +1,15 @@
 import time
+
+import tensorflow as tf
+
 from rllab.algos.base import RLAlgorithm
 import rllab.misc.logger as logger
 import rllab.plotter as plotter
 from sandbox.rocky.tf.policies.base import Policy
-import tensorflow as tf
 from sandbox.rocky.tf.samplers.batch_sampler import BatchSampler
 from sandbox.rocky.tf.samplers.vectorized_sampler import VectorizedSampler
+from rllab.misc import ext
+from rllab.misc.ext import sliced_fun
 
 
 class BatchPolopt(RLAlgorithm):
@@ -97,11 +101,13 @@ class BatchPolopt(RLAlgorithm):
     def shutdown_worker(self):
         self.sampler.shutdown_worker()
 
-    def obtain_samples(self, itr):
-        return self.sampler.obtain_samples(itr)
+    def obtain_samples(self, itr, max_samples=None, log=True):
+        return self.sampler.obtain_samples(itr, max_samples=max_samples,
+                                           log=log)
 
-    def process_samples(self, itr, paths):
-        return self.sampler.process_samples(itr, paths)
+    def process_samples(self, itr, paths, update_baseline=True, log=True):
+        return self.sampler.process_samples(itr, paths, log=log,
+                                            update_baseline=update_baseline)
 
     def train(self):
         with tf.Session() as sess:
@@ -111,28 +117,68 @@ class BatchPolopt(RLAlgorithm):
             for itr in range(self.start_itr, self.n_itr):
                 itr_start_time = time.time()
                 with logger.prefix('itr #%d | ' % itr):
-                    logger.log("Obtaining samples...")
-                    paths = self.obtain_samples(itr)
-                    logger.log("Processing samples...")
-                    samples_data = self.process_samples(itr, paths)
-                    logger.log("Logging diagnostics...")
-                    self.log_diagnostics(paths)
-                    logger.log("Optimizing policy...")
-                    self.optimize_policy(itr, samples_data)
-                    logger.log("Saving snapshot...")
-                    params = self.get_itr_snapshot(itr, samples_data)  # , **kwargs)
-                    if self.store_paths:
-                        params["paths"] = samples_data["paths"]
-                    logger.save_itr_params(itr, params)
-                    logger.log("Saved")
-                    logger.record_tabular('Time', time.time() - start_time)
-                    logger.record_tabular('ItrTime', time.time() - itr_start_time)
-                    logger.dump_tabular(with_prefix=False)
-                    if self.plot:
-                        self.update_plot()
-                        if self.pause_for_plot:
-                            input("Plotting evaluation run: Press Enter to "
-                                  "continue...")
+                    # TODO(cathywu) this should be a parameter somewhere
+                    n_independent_batches = 5
+                    gradient_estimates = []
+                    for batch in range(n_independent_batches):
+                        update_baseline = True if batch == \
+                            n_independent_batches - 1 else False
+                        log = True if batch == n_independent_batches - 1 else False
+                        max_samples = self.batch_size * 100 if batch == 0 and\
+                                                               n_independent_batches > 1 else None
+
+                        logger.log("Obtaining samples...")
+                        paths = self.obtain_samples(itr,
+                                                    log=log,
+                                                    max_samples=max_samples)
+                        logger.log("Processing samples...")
+                        if self.extra_baselines is not None:
+                            samples_datas = self.process_samples(itr, paths,
+                                                                 log=log,
+                                                                update_baseline=update_baseline)
+                            samples_data = samples_datas[0]
+                        else:
+                            samples_data = self.process_samples(itr, paths, log=log,
+                                                            update_baseline=update_baseline)
+                        # TODO(cathywu) compute gradient estimate for each
+                        # sample data; Is the gradient ever explicitly computed?
+                        all_input_values = tuple(ext.flatten_list(ext.extract(
+                            samples_data,
+                            "observations", "actions", "advantages_single"
+                        )))
+                        agent_infos = samples_data["agent_infos"]
+                        state_info_list = [agent_infos[k] for k in self.policy.state_info_keys]
+                        dist_info_list = [agent_infos[k] for k in
+                                          self.policy.distribution.dist_info_keys]
+                        all_input_values += tuple(state_info_list) + tuple(dist_info_list)
+                        flat_g = sliced_fun(self.optimizer._opt_fun["f_grad"],
+                                            self._num_slices)(
+                            all_input_values, None)
+                        gradient_estimates.append(0)
+
+                        if batch != n_independent_batches - 1:
+                            continue
+                        logger.log("Logging diagnostics...")
+                        self.log_diagnostics(paths)
+                        logger.log("Optimizing policy...")
+                        self.optimize_policy(itr, samples_data)
+                        logger.log("Saving snapshot...")
+                        params = self.get_itr_snapshot(itr, samples_data)  # , **kwargs)
+                        if self.store_paths:
+                            params["paths"] = samples_data["paths"]
+                        logger.save_itr_params(itr, params)
+                        logger.log("Saved")
+                        logger.record_tabular('Time', time.time() - start_time)
+                        logger.record_tabular('ItrTime', time.time() - itr_start_time)
+                        logger.dump_tabular(with_prefix=False)
+                        if self.plot:
+                            self.update_plot()
+                            if self.pause_for_plot:
+                                input("Plotting evaluation run: Press Enter to "
+                                      "continue...")
+                    # TODO(cathywu) log empirical estimate of variance of
+                    # policy gradient per parameter
+
         self.shutdown_worker()
 
     def log_diagnostics(self, paths):
