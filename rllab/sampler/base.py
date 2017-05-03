@@ -58,11 +58,7 @@ class BaseSampler(Sampler):
             return path_baselines[:-1], deltas
         else:
             nactions = path["actions"].shape[-1]
-            try:
-                path_baselines = np.hstack([path_baseline, np.zeros((nactions, 1))])
-            except ValueError:
-                import ipdb
-                ipdb.set_trace()
+            path_baselines = np.hstack([path_baseline, np.zeros((nactions, 1))])
             deltas = (np.tile(path["rewards"], [nactions, 1]) + \
                       self.algo.discount * path_baselines[:, 1:] - \
                       path_baselines[:, :-1]).T
