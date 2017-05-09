@@ -27,7 +27,7 @@ from rllab import config_personal
 
 debug = False
 
-exp_prefix = "cluster-multiagent-shared-v1" if not debug \
+exp_prefix = "cluster-multiagent-shared-v2" if not debug \
     else "cluster-multiagent-debug"
 mode = 'ec2' if not debug else 'local'  # 'local_docker', 'ec2', 'local'
 max_path_length = 50
@@ -99,7 +99,8 @@ class VG(VariantGenerator):
         return [
             # "OneStepNoStateEnv",
             # "NoStateEnv",
-            "MultiagentPointEnv",
+            "MultiagentSharedEnv",
+            # "MultiagentPointEnv",
             # "MultiactionPointEnv",
         ]
 
@@ -108,6 +109,8 @@ def gen_run_task(baseline_cls):
     def run_task(vv):
         if vv['env'] == "MultiagentPointEnv":
             from rllab.envs.multiagent_point_env import MultiagentPointEnv as MEnv
+        elif vv['env'] == "MultiagentSharedEnv":
+            from rllab.envs.multiagent_shared_env import MultiagentSharedEnv as MEnv
         elif vv['env'] == "MultiactionPointEnv":
             from rllab.envs.multiaction_point_env import MultiactionPointEnv as MEnv
         elif vv['env'] == "NoStateEnv":
