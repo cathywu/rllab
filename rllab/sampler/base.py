@@ -4,7 +4,7 @@ import numpy as np
 from rllab.misc import special
 from rllab.misc import tensor_utils
 from rllab.algos import util
-from rllab.baselines import util as bs_util
+from rllab.misc import attr_utils
 import rllab.misc.logger as logger
 
 
@@ -45,10 +45,11 @@ class BaseSampler(Sampler):
         :type algo: BatchPolopt
         """
         self.algo = algo
-        self.action_dependent = bs_util.is_action_dependent(self.algo.baseline)
+        self.action_dependent = attr_utils.is_action_dependent(self.algo.baseline)
 
-    def process_baselines(self, baseline, path_baseline, path):
-        if not bs_util.is_action_dependent(baseline):
+    def process_baselines(self, baseline, path_baseline, path,
+                          agent=None, nagents=None):
+        if not attr_utils.is_action_dependent(baseline) and not attr_utils.is_spatial_discounting(self.algo):
             path_baselines = np.append(path_baseline, 0)
             deltas = path["rewards"] + \
                      self.algo.discount * path_baselines[1:] - \
@@ -56,17 +57,24 @@ class BaseSampler(Sampler):
             # TODO(cathywu) what do the last 2 terms mean?
             # 1-step bellman error / TD error
             return path_baselines[:-1], deltas
-        else:
+        elif not attr_utils.is_spatial_discounting(self.algo):
             nactions = path["actions"].shape[-1]
             path_baselines = np.hstack([path_baseline, np.zeros((nactions, 1))])
             deltas = (np.tile(path["rewards"], [nactions, 1]) + \
                       self.algo.discount * path_baselines[:, 1:] - \
                       path_baselines[:, :-1]).T
             return path_baselines[:, :-1], deltas
+        else:  # spatial discounting, no AD baseline
+            path_baselines = np.append(path_baseline, 0)
+            deltas = special.spatial_discount(path["env_infos"]["local_reward"], agent,
+                                      path["observations"]) + \
+                     self.algo.discount * path_baselines[1:] - \
+                     path_baselines[:-1]
+            return path_baselines[:-1], deltas
 
     @staticmethod
     def process_expected_variance(baseline, baselines, returns):
-        if not bs_util.is_action_dependent(baseline):
+        if not attr_utils.is_action_dependent(baseline):
             ev = special.explained_variance_1d(
                 np.concatenate(baselines), returns)
         else:
@@ -78,33 +86,85 @@ class BaseSampler(Sampler):
         return ev
 
     def process_samples(self, itr, paths):
-        baselines = []
-        returns = []
+        nagents = len(paths[0]['observations'])
 
-        if hasattr(self.algo.baseline, "predict_n"):
-            all_path_baselines = self.algo.baseline.predict_n(paths)
+        if attr_utils.is_spatial_discounting(self.algo):
+            returns = [[] for _ in range(nagents)]
+            baselines = [[] for _ in range(nagents)]
         else:
-            all_path_baselines = [self.algo.baseline.predict(path) for path in paths]
+            baselines = []
+            returns = []
 
-        for idx, path in enumerate(paths):
-            path_baseline, deltas = self.process_baselines(self.algo.baseline,
-                all_path_baselines[idx], path)
-            baselines.append(path_baseline)
+        if attr_utils.is_spatial_discounting(self.algo):
+            all_path_baselines = [[self.algo.baseline[i].predict(path, agent=i)
+                                        for path in paths] for i in
+                                  range(nagents)]
+            for idx, path in enumerate(paths):
+                path_baseline, deltas = zip(*[self.process_baselines(
+                    self.algo.baseline[i], all_path_baselines[i][idx],
+                    path, agent=i, nagents=nagents) for i in range(nagents)])
+                for i in range(nagents):
+                    baselines[i].append(path_baseline[i])
 
-            path["advantages"] = special.discount_cumsum(
-                deltas, self.algo.discount * self.algo.gae_lambda)
+                # Convention: [k, path_length]
+                path["advantages"] = np.vstack([special.discount_cumsum(
+                    deltas[i], self.algo.discount * self.algo.gae_lambda) for
+                                      i in range(nagents)])
 
-            path["returns"] = special.discount_cumsum(path["rewards"], self.algo.discount)
-            returns.append(path["returns"])
+                for i in range(nagents):
+                    local_reward = path['env_infos']["local_reward"]
+                    spatial_returns = special.spatial_discount(local_reward, i,
+                                                               path["observations"])
+                    path["returns-%s" % i] = special.discount_cumsum(
+                        spatial_returns, self.algo.discount)
+                    path["returns"] = special.discount_cumsum(path[
+                        "rewards"], self.algo.discount)
+                    returns[i].append(path["returns-%s" % i])
 
-        ev = self.process_expected_variance(self.algo.baseline, baselines,
+            ev = [self.process_expected_variance(self.algo.baseline[i],
+                                                 baselines[i],
+                                            np.concatenate(returns[i])) for i
+                  in range(nagents)]
+        else:
+            if hasattr(self.algo.baseline, "predict_n"):
+                all_path_baselines = self.algo.baseline.predict_n(paths)
+            else:
+                all_path_baselines = [self.algo.baseline.predict(path) for path in paths]
+
+            for idx, path in enumerate(paths):
+                path_baseline, deltas = self.process_baselines(self.algo.baseline,
+                    all_path_baselines[idx], path)
+                baselines.append(path_baseline)
+
+                path["advantages"] = special.discount_cumsum(
+                    deltas, self.algo.discount * self.algo.gae_lambda)
+
+                path["returns"] = special.discount_cumsum(path["rewards"], self.algo.discount)
+                returns.append(path["returns"])
+            ev = self.process_expected_variance(self.algo.baseline, baselines,
                                             np.concatenate(returns))
 
-        observations = tensor_utils.concat_tensor_list([path["observations"] for path in paths])
-        actions = tensor_utils.concat_tensor_list([path["actions"] for path in paths])
         rewards = tensor_utils.concat_tensor_list([path["rewards"] for path in paths])
-        returns = tensor_utils.concat_tensor_list([path["returns"] for path in paths])
-        advantages = tensor_utils.concat_tensor_list([path["advantages"] for path in paths])
+        if attr_utils.is_spatial_discounting(self.algo):
+            # Convention: list of length k (agents) of tensors of size [path_length, agent_obs_dim]
+            observations = [tensor_utils.concat_tensor_list([path["observations"][i] for path in paths]) for i in range(nagents)]
+            # Convention: size [k agents, path length] for ease of flattening
+            actions = [tensor_utils.concat_tensor_list([path["actions"][i] for path in paths]) for i in range(nagents)]
+            # actions = tensor_utils.concat_tensor_list([path["actions"] for path in paths])
+            # import ipdb
+            # ipdb.set_trace()
+            # Convention: size [path length, k agents]
+            returns = tensor_utils.stack_tensor_list([tensor_utils.concat_tensor_list([path[
+                "returns-%s" % i] for path in paths]) for i in range(
+                nagents)]).T
+            # Convention: size [k agents, path length] for ease of flattening
+            advantages = np.array(tensor_utils.concat_tensor_list([path["advantages"].T
+                                                          for path in paths])).T
+        else:
+            observations = tensor_utils.concat_tensor_list([path["observations"] for path in paths])
+            actions = tensor_utils.concat_tensor_list([path["actions"] for path in paths])
+            returns = tensor_utils.concat_tensor_list([path["returns"] for path in paths])
+            advantages = tensor_utils.concat_tensor_list([path["advantages"] for path in paths])
         env_infos = tensor_utils.concat_tensor_dict_list([path["env_infos"] for path in paths])
         agent_infos = tensor_utils.concat_tensor_dict_list([path["agent_infos"] for path in paths])
 
@@ -121,6 +181,7 @@ class BaseSampler(Sampler):
 
         ent = np.mean(self.algo.policy.distribution.entropy(agent_infos))
 
+        # Convention: [?, ...], where ? indicates the batch size
         samples_data = dict(
             observations=observations,
             actions=actions,
@@ -132,32 +193,15 @@ class BaseSampler(Sampler):
             paths=paths,
         )
 
-        if self.algo.extra_baselines is not None:
-            n_extra_baselines = len(self.algo.extra_baselines)
-            extra_ap_baselines = [0 for _ in range(n_extra_baselines)]
-            extra_ev = [0 for _ in range(n_extra_baselines)]
-
-            for i, b in enumerate(self.algo.extra_baselines):
-                if hasattr(b, "predict_n"):
-                    extra_ap_baselines[i] = b.predict_n(paths)
-                else:
-                    extra_ap_baselines[i] = [b.predict(path) for path in paths]
-
-                extra_baselines = []
-                for idx, path in enumerate(paths):
-                    path_baseline, deltas = self.process_baselines(b,
-                                                                   extra_ap_baselines[i][idx], path)
-                    extra_baselines.append(path_baseline)
-
-                extra_ev[i] = self.process_expected_variance(
-                    b, extra_baselines, returns)
-
-
         logger.log("fitting baseline...")
-        if hasattr(self.algo.baseline, 'fit_with_samples'):
-            self.algo.baseline.fit_with_samples(paths, samples_data)
+        if attr_utils.is_spatial_discounting(self.algo):
+            for i in range(nagents):
+                self.algo.baseline[i].fit(paths, agent=i, returns="returns-%s" % i)
         else:
-            self.algo.baseline.fit(paths)
+            if hasattr(self.algo.baseline, 'fit_with_samples'):
+                self.algo.baseline.fit_with_samples(paths, samples_data)
+            else:
+                self.algo.baseline.fit(paths)
         logger.log("fitted")
 
         logger.record_tabular('Iteration', itr)
@@ -171,19 +215,6 @@ class BaseSampler(Sampler):
             logger.record_tabular('ExplainedVariance', ev_mean)
         else:
             logger.record_tabular('ExplainedVariance', ev)
-            ev_mean = ev
-        if self.algo.extra_baselines is not None:
-            for i, b in enumerate(self.algo.extra_baselines):
-                if isinstance(ev, list):
-                    logger.record_tabular('EV[%s]' % type(b).__name__,
-                                          np.mean(extra_ev[i]))
-                    logger.record_tabular('dEV[%s]' % type(b).__name__,
-                                          np.mean(extra_ev[i]) - ev_mean)
-                else:
-                    logger.record_tabular('EV[%s]' % type(b).__name__,
-                                          extra_ev[i])
-                    logger.record_tabular('dEV[%s]' % type(b).__name__,
-                                          extra_ev[i] - ev_mean)
         logger.record_tabular('NumTrajs', len(paths))
         logger.record_tabular('Entropy', ent)
         logger.record_tabular('Perplexity', np.exp(ent))

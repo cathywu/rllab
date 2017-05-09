@@ -14,13 +14,16 @@ class LinearFeatureBaseline(Baseline):
             mix_fraction=1.,
             include_time=True,
             action_dependent=False,
+            spatial_discounting=False,
             **kwargs
     ):
+        self.env_spec = env_spec
         self.observation_space = env_spec.observation_space
         self.mix_fraction = mix_fraction
         self.include_time = include_time
         self.nactions = env_spec.action_space.flat_dim
         self.action_dependent = action_dependent
+        self.spatial_discounting = spatial_discounting
         self.regressor = MovingTargetRegressor(
             LinearRegressor(
                 input_size=self.feature_size,
@@ -30,8 +33,11 @@ class LinearFeatureBaseline(Baseline):
             mix_fraction=mix_fraction
         )
 
-    def get_features(self, path, idx=None):
-        obs = path["observations"]
+    def get_features(self, path, agent=None, idx=None):
+        if agent is None:
+            obs = path["observations"]
+        else:
+            obs = path["observations"][agent]
         o = np.clip(obs, -10, 10)
         l = len(path["rewards"])
         feats = [o, o ** 2]
@@ -46,7 +52,12 @@ class LinearFeatureBaseline(Baseline):
 
     @property
     def feature_size(self):
-        obs_dim = space_utils.space_to_flat_dim(self.observation_space)
+        if self.spatial_discounting:
+            # TODO(cathywu) Refactor this
+            obs_dim = int(space_utils.space_to_flat_dim(self.observation_space)
+                          / self.observation_space.shape[0])
+        else:
+            obs_dim = space_utils.space_to_flat_dim(self.observation_space)
         fsize = obs_dim * 2  # Is this 2 from obs + last_obs or o, o ** 2?
         if self.include_time:
             fsize += 3
@@ -54,13 +65,13 @@ class LinearFeatureBaseline(Baseline):
             fsize += (self.nactions - 1) * 2
         return fsize
 
-    def fit(self, paths, idx=None):
+    def fit(self, paths, agent=None, idx=None, returns="returns"):
         # don't regress against the last value in each path
-        featmat = np.concatenate([self.get_features(path, idx=idx) for path
+        featmat = np.concatenate([self.get_features(path, agent=agent, idx=idx) for path
                                   in paths])
-        returns = np.concatenate([path["returns"] for path in paths])
+        returns = np.concatenate([path[returns] for path in paths])
         self.regressor.fit(featmat, returns.reshape((-1, 1)))
 
-    def predict(self, path, idx=None):
-        feats = self.get_features(path, idx=idx)
+    def predict(self, path, agent=None, idx=None):
+        feats = self.get_features(path, agent=agent, idx=idx)
         return self.regressor.predict_n(feats)[..., 0]

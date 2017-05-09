@@ -17,8 +17,9 @@ from rllab.envs.normalize_obs import NormalizeObs
 # from rllab.envs.normalized_env import normalize
 from sandbox.rocky.tf.envs.base import TfEnv
 from sandbox.rocky.tf.policies.gaussian_mlp_policy import GaussianMLPPolicy
+from sandbox.rocky.tf.policies.shared_gaussian_mlp_policy import SharedGaussianMLPPolicy
 from rllab.misc.instrument import run_experiment_lite
-from rllab.baselines import util
+from rllab.misc import attr_utils
 
 from rllab.misc.instrument import VariantGenerator, variant
 from rllab import config
@@ -41,12 +42,16 @@ class VG(VariantGenerator):
     @variant
     def baseline(self):
         return [
-            "ActionDependentLinearFeatureBaseline",
-            # "LinearFeatureBaseline",
+            # "ActionDependentLinearFeatureBaseline",
+            "LinearFeatureBaseline",
             # "ZeroBaseline",
             # "ActionDependentGaussianMLPBaseline",
             # "GaussianMLPBaseline",
         ]
+
+    @variant
+    def spatial_discount(self):
+        return [True]  # [True, False]
 
     @variant
     def k(self):
@@ -56,7 +61,7 @@ class VG(VariantGenerator):
 
     @variant
     def d(self):
-        return [1]  # [1, 2] # [1, 2, 10]
+        return [2]  # [1, 2] # [1, 2, 10]
 
     @variant
     def batch_size(self):
@@ -92,10 +97,10 @@ class VG(VariantGenerator):
     @variant
     def env(self):
         return [
-            "OneStepNoStateEnv",
-            "NoStateEnv",
+            # "OneStepNoStateEnv",
+            # "NoStateEnv",
             "MultiagentPointEnv",
-            "MultiactionPointEnv",
+            # "MultiactionPointEnv",
         ]
 
 
@@ -119,12 +124,20 @@ def gen_run_task(baseline_cls):
         # env = TfEnv(normalize(MultiagentPointEnv(d=1, k=6),
         #                       normalize_obs=True))
 
-        policy = GaussianMLPPolicy(
-            env_spec=env.spec,
-            name="policy",
-            hidden_sizes=(100, 50, 25),
-            hidden_nonlinearity=tf.nn.tanh,
-        )
+        if vv['spatial_discount']:
+            policy = SharedGaussianMLPPolicy(
+                env_spec=env.spec,
+                name="policy",
+                hidden_sizes=(100, 50, 25),
+                hidden_nonlinearity=tf.nn.tanh,
+            )
+        else:
+            policy = GaussianMLPPolicy(
+                env_spec=env.spec,
+                name="policy",
+                hidden_sizes=(100, 50, 25),
+                hidden_nonlinearity=tf.nn.tanh,
+            )
 
         baseline_args = {
             'env_spec': env.spec,
@@ -132,21 +145,30 @@ def gen_run_task(baseline_cls):
             'include_time': vv["baseline_include_time"],
             'regressor_args': {
                 'holdout_factor': holdout_factor,
-            }
+            },
+            'spatial_discounting': vv['spatial_discount'],
         }
         if baseline_cls == "ActionDependentGaussianMLPBaseline":
-            baseline = ActionDependentGaussianMLPBaseline(**baseline_args)
+            baseline_class = ActionDependentGaussianMLPBaseline
         elif baseline_cls == "ActionDependentLinearFeatureBaseline":
-            baseline = ActionDependentLinearFeatureBaseline(**baseline_args)
+            baseline_class = ActionDependentLinearFeatureBaseline
         elif baseline_cls == "GaussianMLPBaseline":
-            baseline = GaussianMLPBaseline(**baseline_args)
+            baseline_class = GaussianMLPBaseline
         elif baseline_cls == "LinearFeatureBaseline":
-            baseline = LinearFeatureBaseline(**baseline_args)
+            baseline_class = LinearFeatureBaseline
         elif baseline_cls == "ZeroBaseline":
-            baseline = ZeroBaseline(**baseline_args)
-        action_dependent = util.is_action_dependent(baseline)
+            baseline_class = ZeroBaseline
+        if vv['spatial_discount']:
+            baseline = [baseline_class(**baseline_args) for _ in range(
+                env.action_dim)]
+        else:
+            baseline = baseline_class(**baseline_args)
+        action_dependent = attr_utils.is_action_dependent(baseline)
         if action_dependent:
             from sandbox.rocky.tf.algos.trpo_action import TRPOAction as TRPO
+        elif vv['spatial_discount']:
+            from sandbox.rocky.tf.algos.trpo_spatial_discount import \
+                TRPOSpatialDiscount as TRPO
         else:
             from sandbox.rocky.tf.algos.trpo import TRPO
 
@@ -164,9 +186,9 @@ def gen_run_task(baseline_cls):
             gae_lambda=0.97,
             # Uncomment both lines (this and the plot parameter below) to enable plotting
             # plot=True,
-            center_adv=False,  # This disables whitening of advantages
-            extra_baselines=[LinearFeatureBaseline(**baseline_args),
-                             ZeroBaseline(**baseline_args)],
+            # center_adv=False,  # This disables whitening of advantages
+            # extra_baselines=[LinearFeatureBaseline(**baseline_args),
+            #                  ZeroBaseline(**baseline_args)],
         )
         algo.train()
 

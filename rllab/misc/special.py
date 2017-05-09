@@ -129,6 +129,13 @@ def discount_return(x, discount):
     return np.sum(x * (discount ** np.arange(len(x))))
 
 
+def spatial_discount(local_rewards, agent, obs, d=None):
+    # TODO(cathywu) FIX just getting things running for now.
+    # return local_rewards[:, agent]
+    # This should be a NOP (no spatial discounting)
+    return np.sum(local_rewards, axis=-1)
+
+
 def rk4(derivs, y0, t, *args, **kwargs):
     """
     Integrate 1D or ND system of ODEs using 4-th order Runge-Kutta.

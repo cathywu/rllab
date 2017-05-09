@@ -5,6 +5,7 @@ from rllab.sampler.base import BaseSampler
 from sandbox.rocky.tf.envs.parallel_vec_env_executor import ParallelVecEnvExecutor
 from sandbox.rocky.tf.envs.vec_env_executor import VecEnvExecutor
 from rllab.misc import tensor_utils
+from rllab.misc import attr_utils
 import numpy as np
 from rllab.sampler.stateful_pool import ProgBarCounter
 import rllab.misc.logger as logger
@@ -32,6 +33,9 @@ class VectorizedSampler(BaseSampler):
                 max_path_length=self.algo.max_path_length
             )
         self.env_spec = self.algo.env.spec
+        # For spatial discounting
+        if attr_utils.is_spatial_discounting(self.algo):
+            self.nagents = self.env_spec.observation_space.shape[0]
 
     def shutdown_worker(self):
         self.vec_env.terminate()
@@ -86,13 +90,22 @@ class VectorizedSampler(BaseSampler):
                 running_paths[idx]["env_infos"].append(env_info)
                 running_paths[idx]["agent_infos"].append(agent_info)
                 if done:
-                    paths.append(dict(
-                        observations=self.env_spec.observation_space.flatten_n(running_paths[idx]["observations"]),
-                        actions=self.env_spec.action_space.flatten_n(running_paths[idx]["actions"]),
-                        rewards=tensor_utils.stack_tensor_list(running_paths[idx]["rewards"]),
-                        env_infos=tensor_utils.stack_tensor_dict_list(running_paths[idx]["env_infos"]),
-                        agent_infos=tensor_utils.stack_tensor_dict_list(running_paths[idx]["agent_infos"]),
-                    ))
+                    if attr_utils.is_spatial_discounting(self.algo):
+                        paths.append(dict(
+                            observations=[self.env_spec.observation_space.flatten_n(running_paths[idx]["observations"], agent=i) for i in range(self.nagents)],
+                            actions=[self.env_spec.action_space.flatten_n(running_paths[idx]["actions"], agent=i) for i in range(self.nagents)],
+                            rewards=tensor_utils.stack_tensor_list(running_paths[idx]["rewards"]),
+                            env_infos=tensor_utils.stack_tensor_dict_list(running_paths[idx]["env_infos"]),
+                            agent_infos=tensor_utils.stack_tensor_dict_list(running_paths[idx]["agent_infos"]),
+                        ))
+                    else:
+                        paths.append(dict(
+                            observations=self.env_spec.observation_space.flatten_n(running_paths[idx]["observations"]),
+                            actions=self.env_spec.action_space.flatten_n(running_paths[idx]["actions"]),
+                            rewards=tensor_utils.stack_tensor_list(running_paths[idx]["rewards"]),
+                            env_infos=tensor_utils.stack_tensor_dict_list(running_paths[idx]["env_infos"]),
+                            agent_infos=tensor_utils.stack_tensor_dict_list(running_paths[idx]["agent_infos"]),
+                        ))
                     n_samples += len(running_paths[idx]["rewards"])
                     running_paths[idx] = None
             process_time += time.time() - t

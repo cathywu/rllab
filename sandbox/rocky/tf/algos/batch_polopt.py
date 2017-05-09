@@ -138,7 +138,11 @@ class BatchPolopt(RLAlgorithm):
     def log_diagnostics(self, paths):
         self.env.log_diagnostics(paths)
         self.policy.log_diagnostics(paths)
-        self.baseline.log_diagnostics(paths)
+        if isinstance(self.baseline, list):
+            for b in self.baseline:
+                b.log_diagnostics(paths)
+        else:
+            self.baseline.log_diagnostics(paths)
 
     def init_opt(self):
         """

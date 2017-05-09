@@ -43,3 +43,15 @@ class ProxyEnv(Env, Serializable):
 
     def set_param_values(self, params):
         self._wrapped_env.set_param_values(params)
+
+    @property
+    def nagents(self):
+        return self.wrapped_env.nagents
+
+    @property
+    def per_agent_obsdim(self):
+        return self.wrapped_env.per_agent_obsdim
+
+    @property
+    def per_agent_actiondim(self):
+        return self.wrapped_env.per_agent_actiondim

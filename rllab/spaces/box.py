@@ -50,8 +50,11 @@ class Box(Space):
     def unflatten(self, x):
         return np.asarray(x).reshape(self.shape)
 
-    def flatten_n(self, xs):
-        xs = np.asarray(xs)
+    def flatten_n(self, xs, agent=None):
+        if agent is None:
+            xs = np.asarray(xs)
+        else:
+            xs = np.asarray([x[agent, ...] for x in xs])
         return xs.reshape((xs.shape[0], -1))
 
     def unflatten_n(self, xs):

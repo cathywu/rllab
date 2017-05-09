@@ -49,3 +49,15 @@ class NormalizeObs(Env):
         if self.clip is not None:
             x = np.clip(x, -self.clip, self.clip)
         return x
+
+    @property
+    def nagents(self):
+        return self.env.nagents
+
+    @property
+    def per_agent_obsdim(self):
+        return self.env.per_agent_obsdim
+
+    @property
+    def per_agent_actiondim(self):
+        return self.env.per_agent_actiondim
