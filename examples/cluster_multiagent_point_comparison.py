@@ -25,9 +25,9 @@ from rllab.misc.instrument import VariantGenerator, variant
 from rllab import config
 from rllab import config_personal
 
-debug = True
+debug = False
 
-exp_prefix = "cluster-multiagent-v14" if not debug \
+exp_prefix = "cluster-multiagent-shared-v1" if not debug \
     else "cluster-multiagent-debug"
 mode = 'ec2' if not debug else 'local'  # 'local_docker', 'ec2', 'local'
 max_path_length = 50
@@ -51,8 +51,7 @@ class VG(VariantGenerator):
 
     @variant
     def spatial_discount(self):
-        # FIXME(cathywu) NOT YET USED
-        return [True]  # [True, False]
+        return [0.5, 0.7, 0.8, 0.97, 0.99, 0.995, 1]  # [True, False]
 
     @variant
     def k(self):
@@ -190,6 +189,7 @@ def gen_run_task(baseline_cls):
             # center_adv=False,  # This disables whitening of advantages
             # extra_baselines=[LinearFeatureBaseline(**baseline_args),
             #                  ZeroBaseline(**baseline_args)],
+            spatial_discount=vv["spatial_discount"],
         )
         algo.train()
 
@@ -198,7 +198,7 @@ def gen_run_task(baseline_cls):
 
 variants = VG().variants()
 
-SERVICE_LIMIT = 140
+SERVICE_LIMIT = 400
 # AWS_REGIONS = [x for x in config_personal.ALL_REGION_AWS_KEY_NAMES.keys()]
 AWS_REGIONS = ['us-east-1', 'us-east-2', 'us-west-1', 'us-west-2']
 shuffle(AWS_REGIONS)

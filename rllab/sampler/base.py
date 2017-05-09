@@ -67,10 +67,13 @@ class BaseSampler(Sampler):
             return path_baselines[:, :-1], deltas
         else:  # spatial discounting, no AD baseline
             path_baselines = np.append(path_baseline, 0)
-            deltas = special.spatial_discount(path["env_infos"]["local_reward"], agent,
-                                      path["observations"]) + \
-                     self.algo.discount * path_baselines[1:] - \
-                     path_baselines[:-1]
+            local_reward = path['env_infos']["local_reward"]
+            positions = path['env_infos']["positions"]
+            spatial_returns = special.spatial_discount(local_reward, agent,
+                                                       positions,
+                                                       gamma=self.algo.spatial_discount)
+            deltas = spatial_returns + self.algo.discount * path_baselines[
+                1:] - path_baselines[:-1]
             return path_baselines[:-1], deltas
 
     @staticmethod
@@ -112,10 +115,12 @@ class BaseSampler(Sampler):
                     deltas[i], self.algo.discount * self.algo.gae_lambda) for
                                       i in range(nagents)])
 
+                local_reward = path['env_infos']["local_reward"]
+                positions = path['env_infos']["positions"]
                 for i in range(nagents):
-                    local_reward = path['env_infos']["local_reward"]
                     spatial_returns = special.spatial_discount(local_reward, i,
-                                                               path["observations"])
+                                                               positions,
+                                                               gamma=self.algo.spatial_discount)
                     path["returns-%s" % i] = special.discount_cumsum(
                         spatial_returns, self.algo.discount)
                     path["returns"] = special.discount_cumsum(path[

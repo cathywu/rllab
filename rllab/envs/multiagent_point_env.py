@@ -54,6 +54,10 @@ class MultiagentPointEnv(Env):
 
     @property
     def action_space(self):
+        """
+        Convention: first dimension indicates per-agent observation space
+        :return:
+        """
         return Box(low=-0.1, high=0.1, shape=(self.nagents, self.d))
 
     @property
@@ -81,7 +85,7 @@ class MultiagentPointEnv(Env):
 
         next_observation = np.copy(self._state)
         return Step(observation=next_observation, reward=reward, done=done,
-                    local_reward=local_reward)
+                    local_reward=local_reward, positions=self._positions)
 
     def get_relative_positions(self):
         """

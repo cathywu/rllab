@@ -129,11 +129,21 @@ def discount_return(x, discount):
     return np.sum(x * (discount ** np.arange(len(x))))
 
 
-def spatial_discount(local_rewards, agent, obs, d=None):
-    # TODO(cathywu) FIX just getting things running for now.
+def spatial_discount(local_rewards, agent, positions, gamma=0.99, d=None):
+    if d is None:
+        d = lambda x,y: np.linalg.norm(x-y, axis=-1)
+
+    nagents = local_rewards.shape[-1]
+    agent_pos = np.tile(positions[:, agent, :], [1, nagents]).reshape(positions.shape)
+    factor = d(agent_pos, positions)
+    rate = np.power(gamma, factor)
+    discounted_rewards = rate * local_rewards
+    return np.sum(discounted_rewards, axis=-1)
+
+    # This is the most extreme form of discounting
     # return local_rewards[:, agent]
     # This should be a NOP (no spatial discounting)
-    return np.sum(local_rewards, axis=-1)
+    # return np.sum(local_rewards, axis=-1)
 
 
 def rk4(derivs, y0, t, *args, **kwargs):
