@@ -10,7 +10,7 @@ from sandbox.rocky.tf.misc import tensor_utils
 from sandbox.rocky.tf.distributions.diagonal_gaussian import DiagonalGaussian
 
 
-class NPOSpatialDiscount(BatchPolopt):
+class NPOShared(BatchPolopt):
     """
     Natural Policy Optimization.
     """
@@ -27,8 +27,8 @@ class NPOSpatialDiscount(BatchPolopt):
             optimizer = PenaltyLbfgsOptimizer(**optimizer_args)
         self.optimizer = optimizer
         self.step_size = step_size
-        self.spatial_discounting = True
-        super(NPOSpatialDiscount, self).__init__(**kwargs)
+        self.shared_policy = True
+        super(NPOShared, self).__init__(**kwargs)
 
 
     @overrides

@@ -14,7 +14,7 @@ class LinearFeatureBaseline(Baseline):
             mix_fraction=1.,
             include_time=True,
             action_dependent=False,
-            spatial_discounting=False,
+            shared_policy=False,
             **kwargs
     ):
         self.env_spec = env_spec
@@ -23,7 +23,7 @@ class LinearFeatureBaseline(Baseline):
         self.include_time = include_time
         self.nactions = env_spec.action_space.flat_dim
         self.action_dependent = action_dependent
-        self.spatial_discounting = spatial_discounting
+        self.shared_policy = shared_policy
         self.regressor = MovingTargetRegressor(
             LinearRegressor(
                 input_size=self.feature_size,
@@ -52,7 +52,7 @@ class LinearFeatureBaseline(Baseline):
 
     @property
     def feature_size(self):
-        if self.spatial_discounting:
+        if self.shared_policy:
             # TODO(cathywu) Refactor this
             obs_dim = int(space_utils.space_to_flat_dim(self.observation_space)
                           / self.observation_space.shape[0])

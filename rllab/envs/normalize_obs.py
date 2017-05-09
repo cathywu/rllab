@@ -51,6 +51,10 @@ class NormalizeObs(Env):
         return x
 
     @property
+    def shared_policy(self):
+        return self.env.shared_policy
+
+    @property
     def nagents(self):
         return self.env.nagents
 

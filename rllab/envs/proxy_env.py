@@ -45,6 +45,10 @@ class ProxyEnv(Env, Serializable):
         self._wrapped_env.set_param_values(params)
 
     @property
+    def shared_policy(self):
+        return self.wrapped_env.shared_policy
+
+    @property
     def nagents(self):
         return self.wrapped_env.nagents
 

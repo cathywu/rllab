@@ -49,7 +49,8 @@ class BaseSampler(Sampler):
 
     def process_baselines(self, baseline, path_baseline, path,
                           agent=None, nagents=None):
-        if not attr_utils.is_action_dependent(baseline) and not attr_utils.is_spatial_discounting(self.algo):
+        if not attr_utils.is_action_dependent(baseline) and not attr_utils.is_shared_policy(
+                self.algo):
             path_baselines = np.append(path_baseline, 0)
             deltas = path["rewards"] + \
                      self.algo.discount * path_baselines[1:] - \
@@ -57,7 +58,7 @@ class BaseSampler(Sampler):
             # TODO(cathywu) what do the last 2 terms mean?
             # 1-step bellman error / TD error
             return path_baselines[:-1], deltas
-        elif not attr_utils.is_spatial_discounting(self.algo):
+        elif not attr_utils.is_shared_policy(self.algo):
             nactions = path["actions"].shape[-1]
             path_baselines = np.hstack([path_baseline, np.zeros((nactions, 1))])
             deltas = (np.tile(path["rewards"], [nactions, 1]) + \
@@ -88,14 +89,14 @@ class BaseSampler(Sampler):
     def process_samples(self, itr, paths):
         nagents = len(paths[0]['observations'])
 
-        if attr_utils.is_spatial_discounting(self.algo):
+        if attr_utils.is_shared_policy(self.algo):
             returns = [[] for _ in range(nagents)]
             baselines = [[] for _ in range(nagents)]
         else:
             baselines = []
             returns = []
 
-        if attr_utils.is_spatial_discounting(self.algo):
+        if attr_utils.is_shared_policy(self.algo):
             all_path_baselines = [[self.algo.baseline[i].predict(path, agent=i)
                                         for path in paths] for i in
                                   range(nagents)]
@@ -145,18 +146,14 @@ class BaseSampler(Sampler):
                                             np.concatenate(returns))
 
         rewards = tensor_utils.concat_tensor_list([path["rewards"] for path in paths])
-        if attr_utils.is_spatial_discounting(self.algo):
+        if attr_utils.is_shared_policy(self.algo):
             # Convention: list of length k (agents) of tensors of size [path_length, agent_obs_dim]
             observations = [tensor_utils.concat_tensor_list([path["observations"][i] for path in paths]) for i in range(nagents)]
             # Convention: size [k agents, path length] for ease of flattening
             actions = [tensor_utils.concat_tensor_list([path["actions"][i] for path in paths]) for i in range(nagents)]
-            # actions = tensor_utils.concat_tensor_list([path["actions"] for path in paths])
-            # import ipdb
-            # ipdb.set_trace()
             # Convention: size [path length, k agents]
             returns = tensor_utils.stack_tensor_list([tensor_utils.concat_tensor_list([path[
-                "returns-%s" % i] for path in paths]) for i in range(
-                nagents)]).T
+                "returns-%s" % i] for path in paths]) for i in range(nagents)]).T
             # Convention: size [k agents, path length] for ease of flattening
             advantages = np.array(tensor_utils.concat_tensor_list([path["advantages"].T
                                                           for path in paths])).T
@@ -194,7 +191,7 @@ class BaseSampler(Sampler):
         )
 
         logger.log("fitting baseline...")
-        if attr_utils.is_spatial_discounting(self.algo):
+        if attr_utils.is_shared_policy(self.algo):
             for i in range(nagents):
                 self.algo.baseline[i].fit(paths, agent=i, returns="returns-%s" % i)
         else:

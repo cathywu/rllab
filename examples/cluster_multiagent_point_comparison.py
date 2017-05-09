@@ -51,6 +51,7 @@ class VG(VariantGenerator):
 
     @variant
     def spatial_discount(self):
+        # FIXME(cathywu) NOT YET USED
         return [True]  # [True, False]
 
     @variant
@@ -124,7 +125,8 @@ def gen_run_task(baseline_cls):
         # env = TfEnv(normalize(MultiagentPointEnv(d=1, k=6),
         #                       normalize_obs=True))
 
-        if vv['spatial_discount']:
+        shared_policy = hasattr(env, 'shared_policy') and env.shared_policy
+        if shared_policy:
             policy = SharedGaussianMLPPolicy(
                 env_spec=env.spec,
                 name="policy",
@@ -146,7 +148,7 @@ def gen_run_task(baseline_cls):
             'regressor_args': {
                 'holdout_factor': holdout_factor,
             },
-            'spatial_discounting': vv['spatial_discount'],
+            'shared_policy': shared_policy,
         }
         if baseline_cls == "ActionDependentGaussianMLPBaseline":
             baseline_class = ActionDependentGaussianMLPBaseline
@@ -158,7 +160,7 @@ def gen_run_task(baseline_cls):
             baseline_class = LinearFeatureBaseline
         elif baseline_cls == "ZeroBaseline":
             baseline_class = ZeroBaseline
-        if vv['spatial_discount']:
+        if shared_policy:
             baseline = [baseline_class(**baseline_args) for _ in range(
                 env.action_dim)]
         else:
@@ -166,9 +168,8 @@ def gen_run_task(baseline_cls):
         action_dependent = attr_utils.is_action_dependent(baseline)
         if action_dependent:
             from sandbox.rocky.tf.algos.trpo_action import TRPOAction as TRPO
-        elif vv['spatial_discount']:
-            from sandbox.rocky.tf.algos.trpo_spatial_discount import \
-                TRPOSpatialDiscount as TRPO
+        elif shared_policy:
+            from sandbox.rocky.tf.algos.trpo_shared import TRPOShared as TRPO
         else:
             from sandbox.rocky.tf.algos.trpo import TRPO
 

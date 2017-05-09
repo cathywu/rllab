@@ -4,7 +4,7 @@ def is_action_dependent(baseline):
         return True
     return False
 
-def is_spatial_discounting(algo):
-    if (hasattr(algo, "spatial_discounting") and algo.spatial_discounting is True):
+def is_shared_policy(algo):
+    if (hasattr(algo, "shared_policy") and algo.shared_policy is True):
         return True
     return False

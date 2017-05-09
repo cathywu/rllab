@@ -29,6 +29,10 @@ class MultiagentPointEnv(Env):
         self._collisions = collisions
 
     @property
+    def shared_policy(self):
+        return True
+
+    @property
     def nagents(self):
         return self.k
 
