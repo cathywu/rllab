@@ -25,14 +25,13 @@ from rllab.misc.instrument import VariantGenerator, variant
 from rllab import config
 from rllab import config_personal
 
-debug = False
+debug = True
 
-exp_prefix = "cluster-multiagent-shared-v2" if not debug \
+exp_prefix = "cluster-multiagent-shared-v3" if not debug \
     else "cluster-multiagent-debug"
 mode = 'ec2' if not debug else 'local'  # 'local_docker', 'ec2', 'local'
-max_path_length = 50
 n_itr = 600 if not debug else 2
-holdout_factor = 0.3
+holdout_factor = 0.0  # 0.3
 
 # Index among variants to start at
 offset = 0  # 18
@@ -51,11 +50,11 @@ class VG(VariantGenerator):
 
     @variant
     def spatial_discount(self):
-        return [0.5, 0.7, 0.8, 0.97, 0.99, 0.995, 1]  # [True, False]
+        return [1] # [0.5, 0.7, 0.8, 0.97, 0.99, 0.995, 1]  # [True, False]
 
     @variant
     def k(self):
-        return [6, 50, 200, 500, 1000]  # [6, 50, 200]  # , 10,
+        return [6] #, 50, 200, 500, 1000]  # [6, 50, 200]  # , 10,
         # 100,
         # 1000]
 
@@ -64,15 +63,24 @@ class VG(VariantGenerator):
         return [2]  # [1, 2] # [1, 2, 10]
 
     @variant
+    def exit_when_done(self):
+        return [True]  # [True, False]
+
+    @variant
     def batch_size(self):
         return [
-            100 / (1.0-holdout_factor),
-            500 / (1.0-holdout_factor),
+            # 100 / (1.0-holdout_factor),
+            # 500 / (1.0-holdout_factor),
             1000 / (1.0-holdout_factor),
             5000 / (1.0-holdout_factor),
-            # 10000 / (1.0-holdout_factor),
+            10000 / (1.0-holdout_factor),
+            25000 / (1.0-holdout_factor),
             # 25000,
         ]
+
+    @variant
+    def max_path_length(self):
+        return [200, 1000]
 
     @variant
     def step_size(self):
@@ -119,8 +127,9 @@ def gen_run_task(baseline_cls):
             from rllab.envs.one_step_no_state_env import OneStepNoStateEnv as MEnv
         # running average normalization
         env = TfEnv(NormalizeObs(MEnv(d=vv['d'], k=vv['k'],
-                                      horizon=max_path_length,
-                                      collisions=vv['collisions']),
+                                      horizon=vv['max_path_length'],
+                                      collisions=vv['collisions'],
+                                      exit_when_done=vv['exit_when_done']),
                                  clip=5))
 
         # exponential weighting normalization
@@ -180,7 +189,7 @@ def gen_run_task(baseline_cls):
             policy=policy,
             baseline=baseline,
             batch_size=vv['batch_size'],
-            max_path_length=max_path_length,
+            max_path_length=vv['max_path_length'],
             n_itr=n_itr,  # 1000
             discount=0.995,
             step_size=vv["step_size"],

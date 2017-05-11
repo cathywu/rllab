@@ -109,7 +109,7 @@ class SharedGaussianMLPPolicy(StochasticPolicy, LayersPowered, Serializable):
 
     @overrides
     def get_action(self, observation, agent=None):
-        return NotImplementedError
+        return self.get_actions([observation], agent=agent)
         # actions, dicts = zip(*[self.shared_policy.get_action(observation[agent, ...])
         #                  for agent in range(self.nagents)])
         # all_dicts = dict(mean=np.array([d['mean'] for d in dicts]),

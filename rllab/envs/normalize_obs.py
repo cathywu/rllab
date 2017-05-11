@@ -65,3 +65,6 @@ class NormalizeObs(Env):
     @property
     def per_agent_actiondim(self):
         return self.env.per_agent_actiondim
+
+    def render(self, *args, **kwargs):
+        return self.env.render(*args, **kwargs)
