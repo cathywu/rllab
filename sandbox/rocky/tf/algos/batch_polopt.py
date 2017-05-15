@@ -106,6 +106,13 @@ class BatchPolopt(RLAlgorithm):
     def train(self):
         with tf.Session() as sess:
             sess.run(tf.global_variables_initializer())
+
+            # prev_params = self.policy.get_param_values()
+            # import pickle
+            # data = pickle.dumps(self.policy)
+            # with tf.variable_scope("aaa"):
+            #     new_policy = pickle.loads(data)
+            #     import ipdb; ipdb.set_trace()
             self.start_worker()
             start_time = time.time()
             for itr in range(self.start_itr, self.n_itr):
@@ -138,7 +145,11 @@ class BatchPolopt(RLAlgorithm):
     def log_diagnostics(self, paths):
         self.env.log_diagnostics(paths)
         self.policy.log_diagnostics(paths)
-        self.baseline.log_diagnostics(paths)
+        if isinstance(self.baseline, list):
+            for b in self.baseline:
+                b.log_diagnostics(paths)
+        else:
+            self.baseline.log_diagnostics(paths)
 
     def init_opt(self):
         """

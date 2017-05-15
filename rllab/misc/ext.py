@@ -36,13 +36,51 @@ def single(xi, expand_dims=True):
             return [xi[:,k] for k in range(xi.shape[1])]
 
 
+def flatten1(xi, expand_dims=True):
+    """
+    Single out column vectors. Given a (n,k) array, return 1 columnwise
+    (n * k,)-shape array
+    :param xi: (n,k) array
+    :return: 1 (n * k,)-shaped array
+    """
+    if len(xi.shape) == 1:
+        return np.expand_dims(xi, axis=1) if expand_dims else xi
+    else:
+        if expand_dims:
+            return np.expand_dims(xi.flatten(), axis=-1)
+        else:
+            return xi.flatten()
+
+
 def extract(x, *keys):
     if isinstance(x, (dict, lazydict)):
-        return tuple(single(x[k.split('_single')[0]]) if len(k.split(
-                '_single')) > 1 else x[k] for k in keys)
+        out = []
+        for k in keys:
+            if len(k.split('_single')) > 1:
+                out.append(single(x[k.split('_single')[0]]))
+            elif len(k.split('_stack')) > 1:
+                out.append(np.vstack(x[k.split('_stack')[0]]))
+            elif len(k.split('_flatten')) > 1:
+                if len(k.split('_vec')) > 1:
+                    out.append(flatten1(x[k.split('_flatten')[0]], expand_dims=False))
+                else:
+                    out.append(flatten1(x[k.split('_flatten')[0]]))
+            else:
+                out.append(x[k])
+        return tuple(out)
     elif isinstance(x, list):
-        return tuple([single(xi[k.split('_single')[0]]) if len(k.split(
-                '_single')) > 1 else xi[k] for xi in x] for k in keys)
+        out = []
+        for k in keys:
+            for xi in x:
+                if len(k.split('_single')) > 1:
+                    out.append(single(xi[k.split('_single')[0]]))
+                elif len(k.split('_stack')) > 1:
+                    out.append(np.vstack(xi[k.split('_stack')[0]]))
+                elif len(k.split('_flatten')) > 1:
+                    out.append(flatten1(xi[k.split('_flatten')[0]]))
+                else:
+                    out.append(xi[k])
+        return tuple(out)
     else:
         raise NotImplementedError
 

@@ -50,8 +50,11 @@ class GaussianMLPBaseline(Baseline, Parameterized, Serializable):
             mix_fraction=mix_fraction
         )
 
-    def get_features(self, path, idx=None):
-        obs = path["observations"]
+    def get_features(self, path, agent=None, idx=None):
+        if agent is None:
+            obs = path["observations"]
+        else:
+            obs = path["observations"][agent]
         feats = [obs]
         if self.include_time:
             T = len(obs)
@@ -73,15 +76,15 @@ class GaussianMLPBaseline(Baseline, Parameterized, Serializable):
         return fsize
 
     @overrides
-    def fit(self, paths, idx=None):
+    def fit(self, paths, idx=None, returns="returns"):
         all_feats = np.concatenate([self.get_features(p, idx=idx) for p in
                                     paths])
-        returns = np.concatenate([p["returns"] for p in paths])
+        returns = np.concatenate([p[returns] for p in paths])
         self._regressor.fit(all_feats, returns.reshape((-1, 1)))
 
     @overrides
-    def predict(self, path, idx=None):
-        feats = self.get_features(path, idx=idx)
+    def predict(self, path, agent=None, idx=None):
+        feats = self.get_features(path, agent=agent, idx=idx)
         return self._regressor.predict(feats).flatten()
 
     @overrides

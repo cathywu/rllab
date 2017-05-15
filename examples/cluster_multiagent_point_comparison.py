@@ -17,21 +17,22 @@ from rllab.envs.normalize_obs import NormalizeObs
 # from rllab.envs.normalized_env import normalize
 from sandbox.rocky.tf.envs.base import TfEnv
 from sandbox.rocky.tf.policies.gaussian_mlp_policy import GaussianMLPPolicy
+from sandbox.rocky.tf.policies.shared_gaussian_mlp_policy import SharedGaussianMLPPolicy
 from rllab.misc.instrument import run_experiment_lite
-from rllab.baselines import util
+from rllab.misc import attr_utils
+from rllab.envs.normalized_env import NormalizedEnv
 
 from rllab.misc.instrument import VariantGenerator, variant
 from rllab import config
 from rllab import config_personal
 
-debug = True
+debug = False
 
-exp_prefix = "cluster-multiagent-v14" if not debug \
+exp_prefix = "cluster-multiagent-shared-v4" if not debug \
     else "cluster-multiagent-debug"
 mode = 'ec2' if not debug else 'local'  # 'local_docker', 'ec2', 'local'
-max_path_length = 50
 n_itr = 600 if not debug else 2
-holdout_factor = 0.3
+holdout_factor = 0.0  # 0.3
 
 # Index among variants to start at
 offset = 0  # 18
@@ -41,33 +42,47 @@ class VG(VariantGenerator):
     @variant
     def baseline(self):
         return [
-            "ActionDependentLinearFeatureBaseline",
-            # "LinearFeatureBaseline",
+            # "ActionDependentLinearFeatureBaseline",
+            "LinearFeatureBaseline",
             # "ZeroBaseline",
             # "ActionDependentGaussianMLPBaseline",
             # "GaussianMLPBaseline",
         ]
 
     @variant
+    def spatial_discount(self):
+        return [0.01, 0.5, 0.8, 0.97, 0.99, 1]
+        # return [0.01, 0.5, 0.7, 0.8, 0.97, 0.99, 0.995, 1]
+
+    @variant
     def k(self):
-        return [6, 50, 200, 500, 1000]  # [6, 50, 200]  # , 10,
+        return [6, 50] #, 50, 200, 500, 1000]  # [6, 50, 200, 500, 1000]
         # 100,
         # 1000]
 
     @variant
     def d(self):
-        return [1]  # [1, 2] # [1, 2, 10]
+        return [2]  # [1, 2] # [1, 2, 10]
+
+    @variant
+    def exit_when_done(self):
+        return [True]  # [True, False]
 
     @variant
     def batch_size(self):
         return [
-            100 / (1.0-holdout_factor),
-            500 / (1.0-holdout_factor),
+            # 100 / (1.0-holdout_factor),
+            # 500 / (1.0-holdout_factor),
             1000 / (1.0-holdout_factor),
             5000 / (1.0-holdout_factor),
-            # 10000 / (1.0-holdout_factor),
+            10000 / (1.0-holdout_factor),
+            # 25000 / (1.0-holdout_factor),
             # 25000,
         ]
+
+    @variant
+    def max_path_length(self):
+        return [50] # [200, 1000]  # [50, 200, 1000]
 
     @variant
     def step_size(self):
@@ -87,15 +102,16 @@ class VG(VariantGenerator):
 
     @variant
     def collisions(self):
-        return [True]  # [False, True]
+        return [False]  # [True, False]  # [False, True]
 
     @variant
     def env(self):
         return [
-            "OneStepNoStateEnv",
-            "NoStateEnv",
-            "MultiagentPointEnv",
-            "MultiactionPointEnv",
+            # "OneStepNoStateEnv",
+            # "NoStateEnv",
+            "MultiagentSharedEnv",
+            # "MultiagentPointEnv",
+            # "MultiactionPointEnv",
         ]
 
 
@@ -103,6 +119,8 @@ def gen_run_task(baseline_cls):
     def run_task(vv):
         if vv['env'] == "MultiagentPointEnv":
             from rllab.envs.multiagent_point_env import MultiagentPointEnv as MEnv
+        elif vv['env'] == "MultiagentSharedEnv":
+            from rllab.envs.multiagent_shared_env import MultiagentSharedEnv as MEnv
         elif vv['env'] == "MultiactionPointEnv":
             from rllab.envs.multiaction_point_env import MultiactionPointEnv as MEnv
         elif vv['env'] == "NoStateEnv":
@@ -110,21 +128,31 @@ def gen_run_task(baseline_cls):
         elif vv['env'] == "OneStepNoStateEnv":
             from rllab.envs.one_step_no_state_env import OneStepNoStateEnv as MEnv
         # running average normalization
-        env = TfEnv(NormalizeObs(MEnv(d=vv['d'], k=vv['k'],
-                                      horizon=max_path_length,
-                                      collisions=vv['collisions']),
-                                 clip=5))
+        env = TfEnv(NormalizedEnv(NormalizeObs(MEnv(d=vv['d'], k=vv['k'],
+                                      horizon=vv['max_path_length'],
+                                      collisions=vv['collisions'],
+                                      exit_when_done=vv['exit_when_done']),
+                                 clip=5)))
 
         # exponential weighting normalization
         # env = TfEnv(normalize(MultiagentPointEnv(d=1, k=6),
         #                       normalize_obs=True))
 
-        policy = GaussianMLPPolicy(
-            env_spec=env.spec,
-            name="policy",
-            hidden_sizes=(100, 50, 25),
-            hidden_nonlinearity=tf.nn.tanh,
-        )
+        shared_policy = hasattr(env, 'shared_policy') and env.shared_policy
+        if shared_policy:
+            policy = SharedGaussianMLPPolicy(
+                env_spec=env.spec,
+                name="policy",
+                hidden_sizes=(100, 50, 25),
+                hidden_nonlinearity=tf.nn.tanh,
+            )
+        else:
+            policy = GaussianMLPPolicy(
+                env_spec=env.spec,
+                name="policy",
+                hidden_sizes=(100, 50, 25),
+                hidden_nonlinearity=tf.nn.tanh,
+            )
 
         baseline_args = {
             'env_spec': env.spec,
@@ -132,21 +160,29 @@ def gen_run_task(baseline_cls):
             'include_time': vv["baseline_include_time"],
             'regressor_args': {
                 'holdout_factor': holdout_factor,
-            }
+            },
+            'shared_policy': shared_policy,
         }
         if baseline_cls == "ActionDependentGaussianMLPBaseline":
-            baseline = ActionDependentGaussianMLPBaseline(**baseline_args)
+            baseline_class = ActionDependentGaussianMLPBaseline
         elif baseline_cls == "ActionDependentLinearFeatureBaseline":
-            baseline = ActionDependentLinearFeatureBaseline(**baseline_args)
+            baseline_class = ActionDependentLinearFeatureBaseline
         elif baseline_cls == "GaussianMLPBaseline":
-            baseline = GaussianMLPBaseline(**baseline_args)
+            baseline_class = GaussianMLPBaseline
         elif baseline_cls == "LinearFeatureBaseline":
-            baseline = LinearFeatureBaseline(**baseline_args)
+            baseline_class = LinearFeatureBaseline
         elif baseline_cls == "ZeroBaseline":
-            baseline = ZeroBaseline(**baseline_args)
-        action_dependent = util.is_action_dependent(baseline)
+            baseline_class = ZeroBaseline
+        if shared_policy:
+            baseline = [baseline_class(**baseline_args) for _ in range(
+                env.action_dim)]
+        else:
+            baseline = baseline_class(**baseline_args)
+        action_dependent = attr_utils.is_action_dependent(baseline)
         if action_dependent:
             from sandbox.rocky.tf.algos.trpo_action import TRPOAction as TRPO
+        elif shared_policy:
+            from sandbox.rocky.tf.algos.trpo_shared import TRPOShared as TRPO
         else:
             from sandbox.rocky.tf.algos.trpo import TRPO
 
@@ -155,7 +191,7 @@ def gen_run_task(baseline_cls):
             policy=policy,
             baseline=baseline,
             batch_size=vv['batch_size'],
-            max_path_length=max_path_length,
+            max_path_length=vv['max_path_length'],
             n_itr=n_itr,  # 1000
             discount=0.995,
             step_size=vv["step_size"],
@@ -164,9 +200,10 @@ def gen_run_task(baseline_cls):
             gae_lambda=0.97,
             # Uncomment both lines (this and the plot parameter below) to enable plotting
             # plot=True,
-            center_adv=False,  # This disables whitening of advantages
-            extra_baselines=[LinearFeatureBaseline(**baseline_args),
-                             ZeroBaseline(**baseline_args)],
+            # center_adv=False,  # This disables whitening of advantages
+            # extra_baselines=[LinearFeatureBaseline(**baseline_args),
+            #                  ZeroBaseline(**baseline_args)],
+            spatial_discount=vv["spatial_discount"],
         )
         algo.train()
 
@@ -175,7 +212,7 @@ def gen_run_task(baseline_cls):
 
 variants = VG().variants()
 
-SERVICE_LIMIT = 140
+SERVICE_LIMIT = 400
 # AWS_REGIONS = [x for x in config_personal.ALL_REGION_AWS_KEY_NAMES.keys()]
 AWS_REGIONS = ['us-east-1', 'us-east-2', 'us-west-1', 'us-west-2']
 shuffle(AWS_REGIONS)
