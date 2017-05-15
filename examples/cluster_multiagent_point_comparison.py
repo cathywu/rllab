@@ -20,14 +20,15 @@ from sandbox.rocky.tf.policies.gaussian_mlp_policy import GaussianMLPPolicy
 from sandbox.rocky.tf.policies.shared_gaussian_mlp_policy import SharedGaussianMLPPolicy
 from rllab.misc.instrument import run_experiment_lite
 from rllab.misc import attr_utils
+from rllab.envs.normalized_env import NormalizedEnv
 
 from rllab.misc.instrument import VariantGenerator, variant
 from rllab import config
 from rllab import config_personal
 
-debug = True
+debug = False
 
-exp_prefix = "cluster-multiagent-shared-v3" if not debug \
+exp_prefix = "cluster-multiagent-shared-v4" if not debug \
     else "cluster-multiagent-debug"
 mode = 'ec2' if not debug else 'local'  # 'local_docker', 'ec2', 'local'
 n_itr = 600 if not debug else 2
@@ -50,11 +51,12 @@ class VG(VariantGenerator):
 
     @variant
     def spatial_discount(self):
-        return [1] # [0.5, 0.7, 0.8, 0.97, 0.99, 0.995, 1]  # [True, False]
+        return [0.01, 0.5, 0.8, 0.97, 0.99, 1]
+        # return [0.01, 0.5, 0.7, 0.8, 0.97, 0.99, 0.995, 1]
 
     @variant
     def k(self):
-        return [6] #, 50, 200, 500, 1000]  # [6, 50, 200]  # , 10,
+        return [6, 50] #, 50, 200, 500, 1000]  # [6, 50, 200, 500, 1000]
         # 100,
         # 1000]
 
@@ -74,13 +76,13 @@ class VG(VariantGenerator):
             1000 / (1.0-holdout_factor),
             5000 / (1.0-holdout_factor),
             10000 / (1.0-holdout_factor),
-            25000 / (1.0-holdout_factor),
+            # 25000 / (1.0-holdout_factor),
             # 25000,
         ]
 
     @variant
     def max_path_length(self):
-        return [200, 1000]
+        return [50] # [200, 1000]  # [50, 200, 1000]
 
     @variant
     def step_size(self):
@@ -100,7 +102,7 @@ class VG(VariantGenerator):
 
     @variant
     def collisions(self):
-        return [True]  # [False, True]
+        return [False]  # [True, False]  # [False, True]
 
     @variant
     def env(self):
@@ -126,11 +128,11 @@ def gen_run_task(baseline_cls):
         elif vv['env'] == "OneStepNoStateEnv":
             from rllab.envs.one_step_no_state_env import OneStepNoStateEnv as MEnv
         # running average normalization
-        env = TfEnv(NormalizeObs(MEnv(d=vv['d'], k=vv['k'],
+        env = TfEnv(NormalizedEnv(NormalizeObs(MEnv(d=vv['d'], k=vv['k'],
                                       horizon=vv['max_path_length'],
                                       collisions=vv['collisions'],
                                       exit_when_done=vv['exit_when_done']),
-                                 clip=5))
+                                 clip=5)))
 
         # exponential weighting normalization
         # env = TfEnv(normalize(MultiagentPointEnv(d=1, k=6),

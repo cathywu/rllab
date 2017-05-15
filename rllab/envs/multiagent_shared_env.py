@@ -91,7 +91,7 @@ class MultiagentSharedEnv(Env):
         # self.plot(agent=0)
 
         collisions = np.min(self._state, axis=1) < 0.005 if self._collisions \
-            else [False] * self.nagents
+            else np.array([False] * self.nagents)
         done = False
 
         if self._exit_when_done:
@@ -104,7 +104,7 @@ class MultiagentSharedEnv(Env):
             local_reward = -dist - COLLISION_PENALTY * collisions
         reward = sum(local_reward)
         self._reward = reward  # For plotting only
-        # if np.any(dist < 0.005):
+        # if np.sum(dist < 0.005) >= 4:
         #     self.plot(agent=0)
         #     import ipdb
         #     ipdb.set_trace()
