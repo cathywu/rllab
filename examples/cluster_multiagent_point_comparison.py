@@ -24,14 +24,14 @@ from rllab.misc.instrument import VariantGenerator, variant
 from rllab import config
 from rllab import config_personal
 
-debug = True
+debug = False
 
-exp_prefix = "cluster-multiagent-v14" if not debug \
+exp_prefix = "cluster-multiagent-v15" if not debug \
     else "cluster-multiagent-debug"
 mode = 'ec2' if not debug else 'local'  # 'local_docker', 'ec2', 'local'
 max_path_length = 50
 n_itr = 600 if not debug else 2
-holdout_factor = 0.3
+holdout_factor = 0.0
 
 # Index among variants to start at
 offset = 0  # 18
@@ -42,8 +42,8 @@ class VG(VariantGenerator):
     def baseline(self):
         return [
             "ActionDependentLinearFeatureBaseline",
-            # "LinearFeatureBaseline",
-            # "ZeroBaseline",
+            "LinearFeatureBaseline",
+            "ZeroBaseline",
             # "ActionDependentGaussianMLPBaseline",
             # "GaussianMLPBaseline",
         ]
@@ -56,18 +56,22 @@ class VG(VariantGenerator):
 
     @variant
     def d(self):
-        return [1]  # [1, 2] # [1, 2, 10]
+        return [1, 2]  # [1, 2] # [1, 2, 10]
 
     @variant
     def batch_size(self):
         return [
-            100 / (1.0-holdout_factor),
-            500 / (1.0-holdout_factor),
-            1000 / (1.0-holdout_factor),
+            # 100 / (1.0-holdout_factor),
+            # 500 / (1.0-holdout_factor),
+            # 1000 / (1.0-holdout_factor),
             5000 / (1.0-holdout_factor),
             # 10000 / (1.0-holdout_factor),
             # 25000,
         ]
+
+    @variant
+    def collision_epsilon(self):
+        return [0.5, 0.1, 0.05, 0.005]
 
     @variant
     def step_size(self):
@@ -92,10 +96,10 @@ class VG(VariantGenerator):
     @variant
     def env(self):
         return [
-            "OneStepNoStateEnv",
-            "NoStateEnv",
+            # "OneStepNoStateEnv",
+            # "NoStateEnv",
             "MultiagentPointEnv",
-            "MultiactionPointEnv",
+            # "MultiactionPointEnv",
         ]
 
 
@@ -112,7 +116,8 @@ def gen_run_task(baseline_cls):
         # running average normalization
         env = TfEnv(NormalizeObs(MEnv(d=vv['d'], k=vv['k'],
                                       horizon=max_path_length,
-                                      collisions=vv['collisions']),
+                                      collisions=vv['collisions'],
+                                      epsilon=vv['collision_epsilon']),
                                  clip=5))
 
         # exponential weighting normalization
@@ -165,8 +170,8 @@ def gen_run_task(baseline_cls):
             # Uncomment both lines (this and the plot parameter below) to enable plotting
             # plot=True,
             center_adv=False,  # This disables whitening of advantages
-            extra_baselines=[LinearFeatureBaseline(**baseline_args),
-                             ZeroBaseline(**baseline_args)],
+            # extra_baselines=[LinearFeatureBaseline(**baseline_args),
+            #                  ZeroBaseline(**baseline_args)],
         )
         algo.train()
 
@@ -175,7 +180,7 @@ def gen_run_task(baseline_cls):
 
 variants = VG().variants()
 
-SERVICE_LIMIT = 140
+SERVICE_LIMIT = 400
 # AWS_REGIONS = [x for x in config_personal.ALL_REGION_AWS_KEY_NAMES.keys()]
 AWS_REGIONS = ['us-east-1', 'us-east-2', 'us-west-1', 'us-west-2']
 shuffle(AWS_REGIONS)
