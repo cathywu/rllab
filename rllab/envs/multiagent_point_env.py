@@ -13,7 +13,7 @@ def is_collision(x, eps):
     # https://stackoverflow.com/questions/29608987/
     # pairwise-operations-distance-on-two-lists-in-numpy#29611147
     pairwise_dist = scipy.spatial.distance.cdist(x.T, x.T)
-    return np.min(pairwise_dist + 1e6 * np.eye(x.shape[1])) < eps
+    return np.sum(np.min(pairwise_dist + 1e6 * np.eye(x.shape[1]), axis=1) < eps)
 
 
 class MultiagentPointEnv(Env):
@@ -48,9 +48,9 @@ class MultiagentPointEnv(Env):
 
         collision = is_collision(self._state, eps=self._epsilon) if self._collisions else False
         # done = collision
-        done = np.all(np.abs(self._state) < 0.02)
+        # done = np.all(np.abs(self._state) < 0.02)
         # done = np.all(np.abs(self._state) < 0.01) or collision
-        # done = False
+        done = False
 
         reward = - np.sum(np.square(self._state)) - COLLISION_PENALTY * collision
         # reward = min(np.sum(-np.log(np.abs(self._state))), 100) + 1
