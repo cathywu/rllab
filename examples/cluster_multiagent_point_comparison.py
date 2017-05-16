@@ -42,11 +42,11 @@ class VG(VariantGenerator):
     @variant
     def baseline(self):
         return [
-            "ActionDependentLinearFeatureBaseline",
-            "LinearFeatureBaseline",
+            # "ActionDependentLinearFeatureBaseline",
+            # "LinearFeatureBaseline",
             # "ZeroBaseline",
-            # "ActionDependentGaussianMLPBaseline",
-            # "GaussianMLPBaseline",
+            "ActionDependentGaussianMLPBaseline",
+            "GaussianMLPBaseline",
         ]
 
     @variant
@@ -64,7 +64,7 @@ class VG(VariantGenerator):
         return [
             # 100 / (1.0-holdout_factor),
             # 500 / (1.0-holdout_factor),
-            1000 / (1.0-holdout_factor),
+            # 1000 / (1.0-holdout_factor),
             5000 / (1.0-holdout_factor),
             # 10000 / (1.0-holdout_factor),
             # 25000,
