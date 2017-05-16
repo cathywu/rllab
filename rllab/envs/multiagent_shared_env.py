@@ -9,8 +9,8 @@ from rllab.envs.base import Step
 NOT_DONE_PENALTY = 1
 MAX_RANGE = 10
 BOX = 1
-LOW = -0.1
-HIGH = 0.1
+LOW = -0.01
+HIGH = 0.01
 
 
 class MultiagentSharedEnv(Env):

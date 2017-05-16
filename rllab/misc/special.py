@@ -129,14 +129,19 @@ def discount_return(x, discount):
     return np.sum(x * (discount ** np.arange(len(x))))
 
 
-def spatial_discount(local_rewards, agent, positions, gamma=0.99, d=None):
+def spatial_discount(local_rewards, agent, positions, gamma=0.99, d=None, type='exp'):
     if d is None:
         d = lambda x,y: np.linalg.norm(x-y, axis=-1)
 
     nagents = local_rewards.shape[-1]
     agent_pos = np.tile(positions[:, agent, :], [1, nagents]).reshape(positions.shape)
     factor = d(agent_pos, positions)
-    rate = np.power(gamma, factor)
+    if type == 'exp':
+        rate = np.power(gamma, factor)
+    elif type == 'linear':
+        rate = np.maximum(1 - factor/gamma, 0)
+    elif type == 'binary':
+        rate = factor < gamma
     discounted_rewards = rate * local_rewards
     return np.sum(discounted_rewards, axis=-1)
 

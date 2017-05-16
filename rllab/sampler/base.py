@@ -71,7 +71,8 @@ class BaseSampler(Sampler):
             positions = path['env_infos']["positions"]
             spatial_returns = special.spatial_discount(local_reward, agent,
                                                        positions,
-                                                       gamma=self.algo.spatial_discount)
+                                                       gamma=self.algo.spatial_discount,
+                                                       type=self.algo.spatial_discount_type)
             deltas = spatial_returns + self.algo.discount * path_baselines[
                 1:] - path_baselines[:-1]
             return path_baselines[:-1], deltas
@@ -120,7 +121,8 @@ class BaseSampler(Sampler):
                 for i in range(nagents):
                     spatial_returns = special.spatial_discount(local_reward, i,
                                                                positions,
-                                                               gamma=self.algo.spatial_discount)
+                                                               gamma=self.algo.spatial_discount,
+                                                               type=self.algo.spatial_discount_type)
                     path["returns-%s" % i] = special.discount_cumsum(
                         spatial_returns, self.algo.discount)
                     path["returns"] = special.discount_cumsum(path[

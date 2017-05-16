@@ -28,7 +28,7 @@ from rllab import config_personal
 
 debug = False
 
-exp_prefix = "cluster-multiagent-shared-v6" if not debug \
+exp_prefix = "cluster-multiagent-shared-v7" if not debug \
     else "cluster-multiagent-debug"
 mode = 'ec2' if not debug else 'local'  # 'local_docker', 'ec2', 'local'
 n_itr = 600 if not debug else 2
@@ -51,12 +51,22 @@ class VG(VariantGenerator):
 
     @variant
     def spatial_discount(self):
-        return [0.01, 0.5, 1]
+        return [0.1, 0.2, 0.5, 1, 2]  # for linear
+        # return [0.1, 0.2, 0.5, 1, 2]  # for binary
+        # return [1e-20, 1e-15, 0.01, 0.1, 0.2, 0.3, 0.5, 1]  # for exp
         # return [0.01, 0.5, 0.7, 0.8, 0.97, 0.99, 0.995, 1]
 
     @variant
+    def spatial_discount_type(self):
+        return [
+            # 'exp',
+            'linear',
+            'binary',
+        ]
+
+    @variant
     def k(self):
-        return [6, 50]  # , 200, 500]  # [6, 50, 200, 500, 1000]
+        return [25, 50]  # , 200, 500]  # [6, 50, 200, 500, 1000]
 
     @variant
     def done_epsilon(self):
@@ -68,7 +78,7 @@ class VG(VariantGenerator):
 
     @variant
     def collision_penalty(self):
-        return [50, 100]  # [10, 100]
+        return [50]  # , 100]  # [10, 100]
 
     @variant
     def d(self):
@@ -216,6 +226,7 @@ def gen_run_task(baseline_cls):
             # extra_baselines=[LinearFeatureBaseline(**baseline_args),
             #                  ZeroBaseline(**baseline_args)],
             spatial_discount=vv["spatial_discount"],
+            spatial_discount_type=vv["spatial_discount_type"],
         )
         algo.train()
 

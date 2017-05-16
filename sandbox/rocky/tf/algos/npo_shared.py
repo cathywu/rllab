@@ -21,6 +21,7 @@ class NPOShared(BatchPolopt):
             optimizer_args=None,
             step_size=0.01,
             spatial_discount=1.0,
+            spatial_discount_type='exp',
             **kwargs):
         if optimizer is None:
             if optimizer_args is None:
@@ -30,6 +31,7 @@ class NPOShared(BatchPolopt):
         self.step_size = step_size
         self.shared_policy = True
         self.spatial_discount = spatial_discount
+        self.spatial_discount_type = spatial_discount_type
         super(NPOShared, self).__init__(**kwargs)
 
 
