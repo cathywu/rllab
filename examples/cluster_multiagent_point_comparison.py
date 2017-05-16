@@ -28,7 +28,7 @@ from rllab import config_personal
 
 debug = False
 
-exp_prefix = "cluster-multiagent-shared-v5" if not debug \
+exp_prefix = "cluster-multiagent-shared-v6" if not debug \
     else "cluster-multiagent-debug"
 mode = 'ec2' if not debug else 'local'  # 'local_docker', 'ec2', 'local'
 n_itr = 600 if not debug else 2
@@ -51,12 +51,12 @@ class VG(VariantGenerator):
 
     @variant
     def spatial_discount(self):
-        return [0.01, 0.5, 0.8, 0.97, 1]
+        return [0.01, 0.5, 1]
         # return [0.01, 0.5, 0.7, 0.8, 0.97, 0.99, 0.995, 1]
 
     @variant
     def k(self):
-        return [6, 50, 200, 500]  # [6, 50, 200, 500, 1000]
+        return [6, 50]  # , 200, 500]  # [6, 50, 200, 500, 1000]
 
     @variant
     def done_epsilon(self):
@@ -64,7 +64,11 @@ class VG(VariantGenerator):
 
     @variant
     def collision_epsilon(self):
-        return [0.05, 0.005]  # [0.5, 0.1, 0.05, 0.005]
+        return [0.05]  # , 0.005]  # [0.5, 0.1, 0.05, 0.005]
+
+    @variant
+    def collision_penalty(self):
+        return [50, 100]  # [10, 100]
 
     @variant
     def d(self):
@@ -76,14 +80,14 @@ class VG(VariantGenerator):
 
     @variant
     def collisions(self):
-        return [True, False]  # [True, False]  # [False, True]
+        return [True]  # , False]  # [True, False]  # [False, True]
 
     @variant
     def batch_size(self):
         return [
             # 100 / (1.0-holdout_factor),
             # 500 / (1.0-holdout_factor),
-            1000 / (1.0-holdout_factor),
+            # 1000 / (1.0-holdout_factor),
             5000 / (1.0-holdout_factor),
             10000 / (1.0-holdout_factor),
             # 25000 / (1.0-holdout_factor),
@@ -139,7 +143,8 @@ def gen_run_task(baseline_cls):
                  collisions=vv['collisions'],
                  exit_when_done=vv['exit_when_done'],
                  done_epsilon=vv['done_epsilon'],
-                 collision_epsilon=vv['collision_epsilon']), clip=5)))
+                 collision_epsilon=vv['collision_epsilon'],
+                 collision_penalty=vv['collision_penalty']), clip=5)))
 
         # exponential weighting normalization
         # env = TfEnv(normalize(MultiagentPointEnv(d=1, k=6),

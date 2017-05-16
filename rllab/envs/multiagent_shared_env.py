@@ -7,7 +7,6 @@ from sandbox.rocky.tf.spaces.box import Box
 from rllab.envs.base import Step
 
 NOT_DONE_PENALTY = 1
-COLLISION_PENALTY = 10
 MAX_RANGE = 10
 BOX = 1
 LOW = -0.1
@@ -17,13 +16,14 @@ HIGH = 0.1
 class MultiagentSharedEnv(Env):
     def __init__(self, d=2, k=1, slices=10, exit_when_done=False, horizon=1e6,
                  done_epsilon=0.005, collisions=False, collision_epsilon=0.005,
-                 show_actions=True):
+                 collision_penalty=10, show_actions=True):
         self.d = 2
         self.k = k
         self._slices = slices
         self._horizon = horizon
         self._collisions = collisions
         self._collision_epsilon = collision_epsilon
+        self._collision_penalty = collision_penalty
         self._done_epsilon = done_epsilon
         # Agents exit when goal is reached
         self._exit_when_done = exit_when_done
@@ -75,6 +75,7 @@ class MultiagentSharedEnv(Env):
         self._reward = -np.inf
         self._actions = np.zeros(self.action_space.shape)
         self._show_actions = True  # FIXME(cathywu) Remove in cleanup
+        self._collision_penalty = 10  # FIXME(cathywu) Remove in cleanup
         self._iter = 0
 
         observation = np.copy(np.hstack((self._positions, self._state)))
@@ -93,18 +94,19 @@ class MultiagentSharedEnv(Env):
         self._state = self.get_relative_positions()
         # self.plot(agent=0)
 
-        collisions = np.min(self._state, axis=1) < self._collision_epsilon if self._collisions \
+        collisions = np.min(self._state,
+                            axis=1) < self._collision_epsilon if self._collisions \
             else np.array([False] * self.nagents)
         done = False
 
         if self._exit_when_done:
             dist = np.linalg.norm(self._positions, axis=1) * (
                 1 - np.isnan(self._done))
-            local_reward = -dist - COLLISION_PENALTY * collisions + 1 * np.isnan(
+            local_reward = -dist - self._collision_penalty * collisions + 1 * np.isnan(
                 self._done)
         else:
             dist = np.linalg.norm(self._positions, axis=1)
-            local_reward = -dist - COLLISION_PENALTY * collisions
+            local_reward = -dist - self._collision_penalty * collisions
         reward = sum(local_reward)
         self._reward = reward  # For plotting only
         # if np.sum(dist < self._done_epsilon) >= 4:
