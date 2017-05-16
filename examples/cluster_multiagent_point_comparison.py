@@ -26,7 +26,7 @@ from rllab import config_personal
 
 debug = False
 
-exp_prefix = "cluster-multiagent-v15" if not debug \
+exp_prefix = "cluster-multiagent-v16" if not debug \
     else "cluster-multiagent-debug"
 mode = 'ec2' if not debug else 'local'  # 'local_docker', 'ec2', 'local'
 max_path_length = 50
@@ -50,7 +50,7 @@ class VG(VariantGenerator):
 
     @variant
     def k(self):
-        return [6, 50, 200, 500, 1000]  # [6, 50, 200]  # , 10,
+        return [6, 50, 200, 500]  #, 1000]  # [6, 50, 200]  # , 10,
         # 100,
         # 1000]
 
@@ -61,9 +61,9 @@ class VG(VariantGenerator):
     @variant
     def batch_size(self):
         return [
-            # 100 / (1.0-holdout_factor),
-            # 500 / (1.0-holdout_factor),
-            # 1000 / (1.0-holdout_factor),
+            100 / (1.0-holdout_factor),
+            500 / (1.0-holdout_factor),
+            1000 / (1.0-holdout_factor),
             5000 / (1.0-holdout_factor),
             # 10000 / (1.0-holdout_factor),
             # 25000,
@@ -71,7 +71,7 @@ class VG(VariantGenerator):
 
     @variant
     def collision_epsilon(self):
-        return [0.5, 0.1, 0.05, 0.005]
+        return [0.5, 0.05, 0.005]  # 0.1
 
     @variant
     def step_size(self):
