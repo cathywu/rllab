@@ -16,12 +16,15 @@ HIGH = 0.1
 
 class MultiagentSharedEnv(Env):
     def __init__(self, d=2, k=1, slices=10, exit_when_done=False, horizon=1e6,
-                 collisions=False, show_actions=True):
+                 done_epsilon=0.005, collisions=False, collision_epsilon=0.005,
+                 show_actions=True):
         self.d = 2
         self.k = k
         self._slices = slices
         self._horizon = horizon
         self._collisions = collisions
+        self._collision_epsilon = collision_epsilon
+        self._done_epsilon = done_epsilon
         # Agents exit when goal is reached
         self._exit_when_done = exit_when_done
         self._show_actions = show_actions
@@ -90,7 +93,7 @@ class MultiagentSharedEnv(Env):
         self._state = self.get_relative_positions()
         # self.plot(agent=0)
 
-        collisions = np.min(self._state, axis=1) < 0.005 if self._collisions \
+        collisions = np.min(self._state, axis=1) < self._collision_epsilon if self._collisions \
             else np.array([False] * self.nagents)
         done = False
 
@@ -104,13 +107,13 @@ class MultiagentSharedEnv(Env):
             local_reward = -dist - COLLISION_PENALTY * collisions
         reward = sum(local_reward)
         self._reward = reward  # For plotting only
-        # if np.sum(dist < 0.005) >= 4:
+        # if np.sum(dist < self._done_epsilon) >= 4:
         #     self.plot(agent=0)
         #     import ipdb
         #     ipdb.set_trace()
 
         next_observation = np.hstack([self._positions, self._state])
-        self._done[dist < 0.005] = np.nan
+        self._done[dist < self._done_epsilon] = np.nan
         return Step(observation=next_observation, reward=reward, done=done,
                     local_reward=local_reward, positions=self._positions)
 

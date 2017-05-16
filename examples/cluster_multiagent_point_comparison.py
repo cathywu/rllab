@@ -28,7 +28,7 @@ from rllab import config_personal
 
 debug = False
 
-exp_prefix = "cluster-multiagent-shared-v4" if not debug \
+exp_prefix = "cluster-multiagent-shared-v5" if not debug \
     else "cluster-multiagent-debug"
 mode = 'ec2' if not debug else 'local'  # 'local_docker', 'ec2', 'local'
 n_itr = 600 if not debug else 2
@@ -51,22 +51,32 @@ class VG(VariantGenerator):
 
     @variant
     def spatial_discount(self):
-        return [0.01, 0.5, 0.8, 0.97, 0.99, 1]
+        return [0.01, 0.5, 0.8, 0.97, 1]
         # return [0.01, 0.5, 0.7, 0.8, 0.97, 0.99, 0.995, 1]
 
     @variant
     def k(self):
-        return [6, 50] #, 50, 200, 500, 1000]  # [6, 50, 200, 500, 1000]
-        # 100,
-        # 1000]
+        return [6, 50, 200, 500]  # [6, 50, 200, 500, 1000]
+
+    @variant
+    def done_epsilon(self):
+        return [0.01, 0.05]  # [0.05, 0.005]
+
+    @variant
+    def collision_epsilon(self):
+        return [0.05, 0.005]  # [0.5, 0.1, 0.05, 0.005]
 
     @variant
     def d(self):
-        return [2]  # [1, 2] # [1, 2, 10]
+        return [2]  # [1, 2, 10]
 
     @variant
     def exit_when_done(self):
         return [True]  # [True, False]
+
+    @variant
+    def collisions(self):
+        return [True, False]  # [True, False]  # [False, True]
 
     @variant
     def batch_size(self):
@@ -82,27 +92,23 @@ class VG(VariantGenerator):
 
     @variant
     def max_path_length(self):
-        return [50] # [200, 1000]  # [50, 200, 1000]
+        return [50]  # [50, 200, 1000]
 
     @variant
     def step_size(self):
-        return [0.01]  # , 0.05, 0.1]
+        return [0.01]  # [0.01, 0.05, 0.1]
 
     @variant
     def baseline_mix_fraction(self):
-        return [1.0]  #, 0.1]  # [0.2, 0.1, 1.0]
+        return [1.0]  # [0.2, 0.1, 1.0]
 
     @variant
     def baseline_include_time(self):
-        return [True]  # , False]
+        return [True]  # [True, False]
 
     @variant
     def seed(self):
-        return [1, 11, 21, 31, 41]  # 1, 21, 31, 41]
-
-    @variant
-    def collisions(self):
-        return [False]  # [True, False]  # [False, True]
+        return [1, 11, 21, 31, 41]  # [1, 11, 21, 31, 41]
 
     @variant
     def env(self):
@@ -128,11 +134,12 @@ def gen_run_task(baseline_cls):
         elif vv['env'] == "OneStepNoStateEnv":
             from rllab.envs.one_step_no_state_env import OneStepNoStateEnv as MEnv
         # running average normalization
-        env = TfEnv(NormalizedEnv(NormalizeObs(MEnv(d=vv['d'], k=vv['k'],
-                                      horizon=vv['max_path_length'],
-                                      collisions=vv['collisions'],
-                                      exit_when_done=vv['exit_when_done']),
-                                 clip=5)))
+        env = TfEnv(NormalizedEnv(NormalizeObs(
+            MEnv(d=vv['d'], k=vv['k'], horizon=vv['max_path_length'],
+                 collisions=vv['collisions'],
+                 exit_when_done=vv['exit_when_done'],
+                 done_epsilon=vv['done_epsilon'],
+                 collision_epsilon=vv['collision_epsilon']), clip=5)))
 
         # exponential weighting normalization
         # env = TfEnv(normalize(MultiagentPointEnv(d=1, k=6),
