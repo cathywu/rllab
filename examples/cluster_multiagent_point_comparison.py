@@ -51,17 +51,18 @@ class VG(VariantGenerator):
 
     @variant
     def spatial_discount(self):
-        return [0.1, 0.2, 0.5, 1, 2]  # for linear
+        # return [0.01, 0.05, 100]
+        # return [0.1, 0.2, 0.5, 1, 2]  # for linear
         # return [0.1, 0.2, 0.5, 1, 2]  # for binary
-        # return [1e-20, 1e-15, 0.01, 0.1, 0.2, 0.3, 0.5, 1]  # for exp
+        return [1e-20, 0.01, 0.1, 0.3, 1]  # for exp [1e-15, 0.1, 0.2, 0.5]
         # return [0.01, 0.5, 0.7, 0.8, 0.97, 0.99, 0.995, 1]
 
     @variant
     def spatial_discount_type(self):
         return [
-            # 'exp',
-            'linear',
-            'binary',
+            'exp',
+            # 'linear',
+            # 'binary',
         ]
 
     @variant
