@@ -7,7 +7,6 @@ from rllab.envs.base import Step
 import rllab.misc.logger as logger
 
 NOT_DONE_PENALTY = 1
-COLLISION_PENALTY = 10
 
 def is_collision(x, eps):
     # https://stackoverflow.com/questions/29608987/
@@ -17,12 +16,13 @@ def is_collision(x, eps):
 
 
 class MultiagentPointEnv(Env):
-
-    def __init__(self, d=2, k=1, horizon=1e6, collisions=False, epsilon=0.005):
+    def __init__(self, d=2, k=1, horizon=1e6, collisions=False, epsilon=0.005,
+                 collision_penalty=10):
         self.d = d
         self.k = k
         self._horizon = horizon
         self._collisions = collisions
+        self._collision_penalty = collision_penalty
         self._epsilon = epsilon
 
     @property
@@ -52,9 +52,9 @@ class MultiagentPointEnv(Env):
         # done = np.all(np.abs(self._state) < 0.01) or collision
         done = False
 
-        reward = - np.sum(np.square(self._state)) - COLLISION_PENALTY * collision
+        reward = - np.sum(np.square(self._state)) - self._collision_penalty * collision
         # reward = min(np.sum(-np.log(np.abs(self._state))), 100) + 1
-        #                 - COLLISION_PENALTY * collision + done * 50
+        #                 - self._collision_penalty * collision + done * 50
         #          - NOT_DONE_PENALTY
         # reward = - np.sum(np.sqrt(np.sum(np.square(self._state), axis=0))) - \
         #          NOT_DONE_PENALTY
