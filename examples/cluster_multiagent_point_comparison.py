@@ -15,6 +15,7 @@ from sandbox.rocky.tf.baselines.zero_baseline import ZeroBaseline
 
 from rllab.envs.normalize_obs import NormalizeObs
 # from rllab.envs.normalized_env import normalize
+from rllab.envs.normalized_env import NormalizedEnv
 from sandbox.rocky.tf.envs.base import TfEnv
 from sandbox.rocky.tf.policies.gaussian_mlp_policy import GaussianMLPPolicy
 from rllab.misc.instrument import run_experiment_lite
@@ -26,7 +27,7 @@ from rllab import config_personal
 
 debug = False
 
-exp_prefix = "cluster-multiagent-v17" if not debug \
+exp_prefix = "cluster-multiagent-v18" if not debug \
     else "cluster-multiagent-debug"
 mode = 'ec2' if not debug else 'local'  # 'local_docker', 'ec2', 'local'
 max_path_length = 50
@@ -50,32 +51,32 @@ class VG(VariantGenerator):
 
     @variant
     def k(self):
-        return [6, 50, 200]  #, 500]  #, 1000]  # [6, 50, 200]  # , 10,
+        return [6, 50]  #, 200]  #, 500]  #, 1000]  # [6, 50, 200]  # , 10,
         # 100,
         # 1000]
 
     @variant
     def d(self):
-        return [1, 2]  # [1, 2] # [1, 2, 10]
+        return [2]  # [1, 2] # [1, 2, 10]
 
     @variant
     def batch_size(self):
         return [
             # 100 / (1.0-holdout_factor),
-            500 / (1.0-holdout_factor),
+            # 500 / (1.0-holdout_factor),
             1000 / (1.0-holdout_factor),
-            # 5000 / (1.0-holdout_factor),
+            5000 / (1.0-holdout_factor),
             # 10000 / (1.0-holdout_factor),
             # 25000,
         ]
 
     @variant
     def collision_epsilon(self):
-        return [0.5, 0.05, 0.005]  # 0.1
+        return [0.05]  # [0.5, 0.005]  # 0.1
 
     @variant
     def collision_penalty(self):
-        return [100, 200, 50]  # 10
+        return [1000, 100]  # , 200, 100, 50]  # 10
 
     @variant
     def step_size(self):
@@ -118,12 +119,12 @@ def gen_run_task(baseline_cls):
         elif vv['env'] == "OneStepNoStateEnv":
             from rllab.envs.one_step_no_state_env import OneStepNoStateEnv as MEnv
         # running average normalization
-        env = TfEnv(NormalizeObs(MEnv(d=vv['d'], k=vv['k'],
+        env = TfEnv(NormalizedEnv(NormalizeObs(MEnv(d=vv['d'], k=vv['k'],
                                       horizon=max_path_length,
                                       collisions=vv['collisions'],
                                       epsilon=vv['collision_epsilon'],
                                       collision_penalty=vv['collision_penalty']),
-                                 clip=5))
+                                 clip=5)))
 
         # exponential weighting normalization
         # env = TfEnv(normalize(MultiagentPointEnv(d=1, k=6),

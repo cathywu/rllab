@@ -31,14 +31,14 @@ class MultiagentPointEnv(Env):
 
     @property
     def action_space(self):
-        return Box(low=-0.1, high=0.1, shape=(1, self.d * self.k))
+        return Box(low=-0.01, high=0.01, shape=(1, self.d * self.k))
 
     @property
     def horizon(self):
         return self._horizon
 
     def reset(self):
-        self._state = np.random.uniform(-1, 1, size=(self.d, self.k))
+        self._state = np.random.uniform(0, 2, size=(self.d, self.k))
         observation = np.copy(self._state)
         return observation
 
