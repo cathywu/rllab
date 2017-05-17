@@ -28,7 +28,7 @@ from rllab import config_personal
 
 debug = False
 
-exp_prefix = "cluster-multiagent-shared-v7" if not debug \
+exp_prefix = "cluster-multiagent-shared-v8" if not debug \
     else "cluster-multiagent-debug"
 mode = 'ec2' if not debug else 'local'  # 'local_docker', 'ec2', 'local'
 n_itr = 600 if not debug else 2
@@ -53,25 +53,29 @@ class VG(VariantGenerator):
     def spatial_discount(self):
         # return [0.01, 0.05, 100]
         # return [0.1, 0.2, 0.5, 1, 2]  # for linear
-        # return [0.1, 0.2, 0.5, 1, 2]  # for binary
-        return [1e-20, 0.01, 0.1, 0.3, 1]  # for exp [1e-15, 0.1, 0.2, 0.5]
+        return [0.001, 0.1, 0.2, 0.5, 100]  # for binary
+        # return [1e-20, 0.01, 0.1, 0.3, 1]  # for exp [1e-15, 0.1, 0.2, 0.5]
         # return [0.01, 0.5, 0.7, 0.8, 0.97, 0.99, 0.995, 1]
 
     @variant
     def spatial_discount_type(self):
         return [
-            'exp',
+            # 'exp',
             # 'linear',
-            # 'binary',
+            'binary',
         ]
 
     @variant
     def k(self):
-        return [25, 50]  # , 200, 500]  # [6, 50, 200, 500, 1000]
+        return [25] #, 50]  # , 200, 500]  # [6, 50, 200, 500, 1000]
+
+    @variant
+    def lidar_slices(self):
+        return [4, 6]  # [10]
 
     @variant
     def done_epsilon(self):
-        return [0.01, 0.05]  # [0.05, 0.005]
+        return [0.01]  #, 0.05]  # [0.05, 0.005]
 
     @variant
     def collision_epsilon(self):
@@ -123,7 +127,7 @@ class VG(VariantGenerator):
 
     @variant
     def seed(self):
-        return [1, 11, 21, 31, 41]  # [1, 11, 21, 31, 41]
+        return [1, 11, 21]  #, 31, 41]  # [1, 11, 21, 31, 41]
 
     @variant
     def env(self):
@@ -155,7 +159,8 @@ def gen_run_task(baseline_cls):
                  exit_when_done=vv['exit_when_done'],
                  done_epsilon=vv['done_epsilon'],
                  collision_epsilon=vv['collision_epsilon'],
-                 collision_penalty=vv['collision_penalty']), clip=5)))
+                 collision_penalty=vv['collision_penalty'],
+                 slices=vv['lidar_slices']), clip=5)))
 
         # exponential weighting normalization
         # env = TfEnv(normalize(MultiagentPointEnv(d=1, k=6),

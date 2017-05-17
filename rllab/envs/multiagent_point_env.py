@@ -37,7 +37,7 @@ class MultiagentPointEnv(Env):
         return self._horizon
 
     def reset(self):
-        self._state = np.random.uniform(0, 2, size=(self.d, self.k))
+        self._state = np.random.uniform(-1, 1, size=(self.d, self.k))
         observation = np.copy(self._state)
         return observation
 

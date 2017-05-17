@@ -68,7 +68,7 @@ class MultiagentSharedEnv(Env):
 
     def reset(self):
         self._done = np.zeros(self.nagents)
-        self._positions = np.random.uniform(-BOX, BOX,
+        self._positions = np.random.uniform(0, 2*BOX,
                                             size=(self.nagents, self.d))
         self._state = self.get_relative_positions()
         # For plotting only
