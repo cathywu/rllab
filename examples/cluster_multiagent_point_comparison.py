@@ -67,7 +67,7 @@ class VG(VariantGenerator):
 
     @variant
     def k(self):
-        return [25] #, 50]  # , 200, 500]  # [6, 50, 200, 500, 1000]
+        return [200] #, 50]  # , 200, 500]  # [6, 50, 200, 500, 1000]
 
     @variant
     def lidar_slices(self):
