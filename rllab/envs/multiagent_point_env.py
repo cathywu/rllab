@@ -1,37 +1,21 @@
 import numpy as np
-import scipy
 
 from rllab.envs.base import Env
 from sandbox.rocky.tf.spaces.box import Box
 from rllab.envs.base import Step
 import rllab.misc.logger as logger
+from rllab.envs import multiagent_utils
+from rllab.envs.multiagent_env import MultiagentEnv
 
 NOT_DONE_PENALTY = 1
 BOX = 1
 LOW = -0.1
 HIGH = 0.1
 
-def is_collision(x, eps):
-    # https://stackoverflow.com/questions/29608987/
-    # pairwise-operations-distance-on-two-lists-in-numpy#29611147
-    pairwise_dist = scipy.spatial.distance.cdist(x.T, x.T)
-    return np.sum(np.min(pairwise_dist + 1e6 * np.eye(x.shape[1]), axis=1) < eps)
-
-
-class MultiagentPointEnv(Env):
-    def __init__(self, d=2, k=1, horizon=1e6, collisions=False, epsilon=0.005,
-                 collision_penalty=10, show_actions=True):
+class MultiagentPointEnv(MultiagentEnv):
+    def __init__(self, d=2, **kwargs):
         self.d = d
-        self.k = k
-        self._horizon = horizon
-        self._collisions = collisions
-        self._collision_penalty = collision_penalty
-        self._epsilon = epsilon
-        self._show_actions = show_actions
-
-    @property
-    def nagents(self):
-        return self.k
+        super(MultiagentPointEnv, self).__init__(**kwargs)
 
     @property
     def observation_space(self):
@@ -43,16 +27,15 @@ class MultiagentPointEnv(Env):
         # return Box(low=LOW, high=HIGH, shape=(self.d, self.nagents))
         return Box(low=LOW, high=HIGH, shape=(1, self.d * self.nagents))
 
-    @property
-    def horizon(self):
-        return self._horizon
-
     def reset(self):
-        self._state = np.random.uniform(0, 2, size=self.observation_space.shape)
-        self._positions = self._state
+        self._done = np.zeros(self.nagents)
+        self._positions = np.random.uniform(0, 2, size=self.observation_space.shape)
+        self._state = self._positions  # fully observed
         self._actions = np.zeros(self.action_space.shape).reshape(self.observation_space.shape)
         self._reward = -np.inf  # For plotting only
         self._iter = 0
+
+        self._done_reward = 1  # FIXME(cathywu) remove in cleanup
 
         observation = np.copy(self._state)
         # self.plot(agent=0, tag='reset')
@@ -63,27 +46,38 @@ class MultiagentPointEnv(Env):
         # FIXME(cathywu) check reshaping
         action_mat = np.reshape(action, self.observation_space.shape)
         self._actions = action_mat  # For plotting only
-        self._state = self._state + action_mat
-        self._positions = self._state
+        if self._exit_when_done:
+            self._positions = self._positions + action_mat * np.tile(
+                (1 - np.isnan(self._done)), [self.d, 1])
+        else:
+            self._positions = self._positions + action_mat
+        self._state = self._positions  # fully observed
         # self.plot(agent=0)
 
-        collision = is_collision(self._state, eps=self._epsilon) if self._collisions else False
+        collision = multiagent_utils.is_collision(self._state, eps=self._collision_epsilon) if self._collisions else False
         # done = collision
         # done = np.all(np.abs(self._state) < 0.02)
         # done = np.all(np.abs(self._state) < 0.01) or collision
         done = False
 
-        reward = - np.sum(np.square(self._state)) - self._collision_penalty * collision
+        # reward = - np.sum(np.square(self._state)) - self._collision_penalty * collision
         # reward = min(np.sum(-np.log(np.abs(self._state))), 100) + 1
         #                 - self._collision_penalty * collision + done * 50
         #          - NOT_DONE_PENALTY
         # reward = - np.sum(np.sqrt(np.sum(np.square(self._state), axis=0))) - \
         #          NOT_DONE_PENALTY
+        dist = np.linalg.norm(self._positions, axis=0)
+        if self._exit_when_done:
+            goal_reward = -dist * (1 - np.isnan(self._done)) + self._done_reward * np.isnan(self._done)
+        else:
+            goal_reward = -dist
+        reward = sum(goal_reward) - self._collision_penalty * collision
         self._reward = reward  # For plotting only
         # if reward > -3:
         #     self.plot(agent=0)
 
         next_observation = np.copy(self._state)
+        self._done[dist < self._done_epsilon] = np.nan
         # logger.log('done: {}, collision: {}, reward: {}'.format(done,
         #                                                         collision,
         #                                                         reward))
@@ -109,7 +103,7 @@ class MultiagentPointEnv(Env):
         agenty = self._positions[1, agent]
 
         plt.scatter(self._positions[0, :], self._positions[1, :])
-        # done = self._positions[np.isnan(self._done), :]
+        done = self._positions[:, np.isnan(self._done)]
         if self._show_actions:
             # Plot trace of where the agents are coming from
             for i in range(self.nagents):
@@ -121,7 +115,7 @@ class MultiagentPointEnv(Env):
                           fc='k', ec='k')
 
         # Plot the agents which have completed the task in green
-        # plt.scatter(done[:, 0], done[:, 1], c='g')
+        plt.scatter(done[0, :], done[1, :], c='g')
         # Plot the agent in red
         plt.scatter(agentx, agenty, c='red')
 
@@ -149,6 +143,3 @@ class MultiagentPointEnv(Env):
         plt.savefig(fname)
         plt.clf()
 
-    @property
-    def _exit(self):
-        pass

@@ -27,11 +27,11 @@ from rllab import config_personal
 
 debug = False
 
-exp_prefix = "cluster-multiagent-v18" if not debug \
+exp_prefix = "cluster-multiagent-v19" if not debug \
     else "cluster-multiagent-debug"
 mode = 'ec2' if not debug else 'local'  # 'local_docker', 'ec2', 'local'
 max_path_length = 50
-n_itr = 2000 if not debug else 2
+n_itr = 2000 if not debug else 2000
 holdout_factor = 0.0
 
 # Index among variants to start at
@@ -51,13 +51,21 @@ class VG(VariantGenerator):
 
     @variant
     def k(self):
-        return [500]  # [6, 50, 200, 500, 1000]
+        return [6, 50, 200, 500]  # [6, 50, 200, 500, 1000]
         # 100,
         # 1000]
 
     @variant
     def d(self):
-        return [2]  # [1, 2] # [1, 2, 10]
+        return [1, 2]  # [1, 2] # [1, 2, 10]
+
+    @variant
+    def exit_when_done(self):
+        return [True]  # [True, False]
+
+    @variant
+    def collisions(self):
+        return [True]  # [True]  # [False, True]
 
     @variant
     def batch_size(self):
@@ -71,12 +79,24 @@ class VG(VariantGenerator):
         ]
 
     @variant
+    def done_epsilon(self):
+        return [0.01]  # , 0.05]  # [0.05, 0.005]
+
+    @variant
+    def done_reward(self):
+        return [1]  # [1000, 100]  # , 200, 100, 50]  # 10
+
+    @variant
     def collision_epsilon(self):
         return [0.05]  # [0.5, 0.005]  # 0.1
 
     @variant
     def collision_penalty(self):
         return [10]  # [1000, 100]  # , 200, 100, 50]  # 10
+
+    @variant
+    def max_path_length(self):
+        return [50]  # [50, 200, 1000]
 
     @variant
     def step_size(self):
@@ -93,10 +113,6 @@ class VG(VariantGenerator):
     @variant
     def seed(self):
         return [1, 11]  #, 21, 31, 41]  # 1, 21, 31, 41]
-
-    @variant
-    def collisions(self):
-        return [False]  # [True]  # [False, True]
 
     @variant
     def env(self):
@@ -119,12 +135,14 @@ def gen_run_task(baseline_cls):
         elif vv['env'] == "OneStepNoStateEnv":
             from rllab.envs.one_step_no_state_env import OneStepNoStateEnv as MEnv
         # running average normalization
-        env = TfEnv(NormalizedEnv(NormalizeObs(MEnv(d=vv['d'], k=vv['k'],
-                                      horizon=max_path_length,
-                                      collisions=vv['collisions'],
-                                      epsilon=vv['collision_epsilon'],
-                                      collision_penalty=vv['collision_penalty']),
-                                 clip=5)))
+        env = TfEnv(NormalizedEnv(NormalizeObs(
+            MEnv(d=vv['d'], k=vv['k'], horizon=vv['max_path_length'],
+                 collisions=vv['collisions'],
+                 exit_when_done=vv['exit_when_done'],
+                 done_epsilon=vv['done_epsilon'],
+                 done_reward=vv['done_reward'],
+                 collision_epsilon=vv['collision_epsilon'],
+                 collision_penalty=vv['collision_penalty']), clip=5)))
 
         # exponential weighting normalization
         # env = TfEnv(normalize(MultiagentPointEnv(d=1, k=6),
@@ -167,7 +185,7 @@ def gen_run_task(baseline_cls):
             policy=policy,
             baseline=baseline,
             batch_size=vv['batch_size'],
-            max_path_length=max_path_length,
+            max_path_length=vv['max_path_length'],
             n_itr=n_itr,  # 1000
             discount=0.995,
             step_size=vv["step_size"],
