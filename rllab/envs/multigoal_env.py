@@ -71,7 +71,10 @@ class MultigoalEnv(MultiagentEnv):
         self._state = np.hstack([self._positions1, self._positions2])  # fully observed
         # self.plot(agent=0)
 
-        collision = ma_utils.is_collision(self._state, eps=self._collision_epsilon) if self._collisions else False
+        if self._exit_when_done:
+            collision = ma_utils.is_collision(self._state, eps=self._collision_epsilon, mask=self._done) if self._collisions else False
+        else:
+            collision = ma_utils.is_collision(self._state, eps=self._collision_epsilon) if self._collisions else False
         # done = collision
         # done = np.all(np.abs(self._state) < 0.02)
         # done = np.all(np.abs(self._state) < 0.01) or collision
