@@ -49,3 +49,6 @@ class NormalizeObs(Env):
         if self.clip is not None:
             x = np.clip(x, -self.clip, self.clip)
         return x
+
+    def render(self, *args, **kwargs):
+        return self.env.render(*args, **kwargs)

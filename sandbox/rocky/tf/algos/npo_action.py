@@ -184,5 +184,5 @@ class NPOAction(BatchPolopt):
             itr=itr,
             policy=self.policy,
             baseline=self.baseline,
-            env=self.env,
+            env=self.sampler.vec_env.envs[0], # self.env,
         )

@@ -31,7 +31,7 @@ exp_prefix = "cluster-multiagent-v18" if not debug \
     else "cluster-multiagent-debug"
 mode = 'ec2' if not debug else 'local'  # 'local_docker', 'ec2', 'local'
 max_path_length = 50
-n_itr = 600 if not debug else 2
+n_itr = 2000 if not debug else 2
 holdout_factor = 0.0
 
 # Index among variants to start at
@@ -42,16 +42,16 @@ class VG(VariantGenerator):
     @variant
     def baseline(self):
         return [
-            # "ActionDependentLinearFeatureBaseline",
-            # "LinearFeatureBaseline",
+            "ActionDependentLinearFeatureBaseline",
+            "LinearFeatureBaseline",
             # "ZeroBaseline",
-            "ActionDependentGaussianMLPBaseline",
-            "GaussianMLPBaseline",
+            # "ActionDependentGaussianMLPBaseline",
+            # "GaussianMLPBaseline",
         ]
 
     @variant
     def k(self):
-        return [6, 50]  #, 200]  #, 500]  #, 1000]  # [6, 50, 200]  # , 10,
+        return [500]  # [6, 50, 200, 500, 1000]
         # 100,
         # 1000]
 
@@ -76,7 +76,7 @@ class VG(VariantGenerator):
 
     @variant
     def collision_penalty(self):
-        return [1000, 100]  # , 200, 100, 50]  # 10
+        return [10]  # [1000, 100]  # , 200, 100, 50]  # 10
 
     @variant
     def step_size(self):
@@ -92,11 +92,11 @@ class VG(VariantGenerator):
 
     @variant
     def seed(self):
-        return [1, 11, 21, 31, 41]  # 1, 21, 31, 41]
+        return [1, 11]  #, 21, 31, 41]  # 1, 21, 31, 41]
 
     @variant
     def collisions(self):
-        return [True]  # [False, True]
+        return [False]  # [True]  # [False, True]
 
     @variant
     def env(self):
@@ -133,7 +133,8 @@ def gen_run_task(baseline_cls):
         policy = GaussianMLPPolicy(
             env_spec=env.spec,
             name="policy",
-            hidden_sizes=(100, 50, 25),
+            hidden_sizes=(200, 200),
+            # hidden_sizes=(100, 50, 25),
             hidden_nonlinearity=tf.nn.tanh,
         )
 

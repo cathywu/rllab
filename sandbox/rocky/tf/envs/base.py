@@ -59,6 +59,9 @@ class TfEnv(ProxyEnv):
         # Use a class wrapper rather than a lambda method for smoother serialization
         return WrappedCls(cls, env_cls, extra_kwargs)
 
+    def render(self, *args, **kwargs):
+        return self._wrapped_env.render(*args, **kwargs)
+
 
 class VecTfEnv(object):
 
