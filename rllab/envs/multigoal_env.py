@@ -4,7 +4,7 @@ from rllab.envs.base import Env
 from sandbox.rocky.tf.spaces.box import Box
 from rllab.envs.base import Step
 import rllab.misc.logger as logger
-from rllab.envs import multiagent_utils
+from rllab.envs import multiagent_utils as ma_utils
 from rllab.envs.multiagent_env import MultiagentEnv
 
 NOT_DONE_PENALTY = 1
@@ -36,6 +36,17 @@ class MultigoalEnv(MultiagentEnv):
         self._positions2 = np.tile([1.5, 0], [self.nagents, 1]).T + rand[:, self.nagents:]
         self._goal1 = np.tile([0, -1.5], [self.nagents, 1]).T
         self._goal2 = np.tile([-1.5, 0], [self.nagents, 1]).T
+        # Intersection-like constraints
+        self._constraints = [
+            (np.tile([1, 1], [self.nagents, 1]).T,
+             np.tile([5, 5], [self.nagents, 1]).T),
+            (np.tile([-5, -5], [self.nagents, 1]).T,
+             np.tile([-1, -1], [self.nagents, 1]).T),
+            (np.tile([1, -5], [self.nagents, 1]).T,
+             np.tile([5, -1], [self.nagents, 1]).T),
+            (np.tile([-5, 1], [self.nagents, 1]).T,
+             np.tile([-1, 5], [self.nagents, 1]).T),
+        ]
         self._state = np.hstack([self._positions1, self._positions2])  # fully observed
         self._actions = np.zeros(self.action_space.shape).reshape(self.observation_space.shape)
         self._reward = -np.inf  # For plotting only
@@ -60,7 +71,7 @@ class MultigoalEnv(MultiagentEnv):
         self._state = np.hstack([self._positions1, self._positions2])  # fully observed
         # self.plot(agent=0)
 
-        collision = multiagent_utils.is_collision(self._state, eps=self._collision_epsilon) if self._collisions else False
+        collision = ma_utils.is_collision(self._state, eps=self._collision_epsilon) if self._collisions else False
         # done = collision
         # done = np.all(np.abs(self._state) < 0.02)
         # done = np.all(np.abs(self._state) < 0.01) or collision
@@ -80,7 +91,16 @@ class MultigoalEnv(MultiagentEnv):
             goal_reward = -dist * (1 - np.isnan(self._done)) + self._done_reward * np.isnan(self._done)
         else:
             goal_reward = -dist
-        reward = sum(goal_reward) - self._collision_penalty * collision
+
+        # Constraints violation rewards
+        violation1 = np.zeros(self.nagents, dtype=np.bool)
+        violation2 = np.zeros(self.nagents, dtype=np.bool)
+        for constraint in self._constraints:
+            lower, upper = constraint
+            violation1 = violation1 + ma_utils.violates_constraint(self._positions1, upper, lower)
+            violation2 = violation2 + ma_utils.violates_constraint(self._positions2, upper, lower)
+
+        reward = sum(goal_reward) - self._collision_penalty * (collision + sum(violation1) + sum(violation2))
         self._reward = reward  # For plotting only
         # if reward > -3:
         #     self.plot(agent=0)
@@ -107,7 +127,17 @@ class MultigoalEnv(MultiagentEnv):
         :return:
         """
         import matplotlib.pyplot as plt
-        import cmath
+        import matplotlib.patches as patches
+        fig = plt.figure()
+        ax = fig.add_subplot(111, aspect='equal')
+        for constraint in self._constraints:
+            lower, upper = constraint
+            ax.add_patch(
+                patches.Rectangle(lower[:,0],  # (x,y)
+                    upper[0, 0] - lower[0, 0],  # width
+                    upper[1, 0] - lower[1, 0],  # height
+                )
+            )
         positions = np.hstack([self._positions1, self._positions2])  # fully observed
         agentx = positions[0, agent]
         agenty = positions[1, agent]
@@ -148,8 +178,8 @@ class MultigoalEnv(MultiagentEnv):
 
         if tag is not None:
             fname = 'data/visualization/lidar-%s-%s-agent%s' % (
-                tag, self._iter, agent)
+                tag, str(self._iter).zfill(5), agent)
         else:
-            fname = 'data/visualization/lidar-%s-agent%s' % (self._iter, agent)
+            fname = 'data/visualization/lidar-%s-agent%s' % (str(self._iter).zfill(5), agent)
         plt.savefig(fname)
         plt.clf()

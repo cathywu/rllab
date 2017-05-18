@@ -25,17 +25,16 @@ from rllab.misc.instrument import VariantGenerator, variant
 from rllab import config
 from rllab import config_personal
 
-debug = False
+debug = True
 
 exp_prefix = "cluster-multiagent-v19" if not debug \
     else "cluster-multiagent-debug"
 mode = 'ec2' if not debug else 'local'  # 'local_docker', 'ec2', 'local'
-max_path_length = 50
 n_itr = 2000 if not debug else 2000
 holdout_factor = 0.0
 
 # Index among variants to start at
-offset = 0  # 18
+offset = 0
 
 
 class VG(VariantGenerator):
@@ -96,7 +95,7 @@ class VG(VariantGenerator):
 
     @variant
     def max_path_length(self):
-        return [50]  # [50, 200, 1000]
+        return [100]  # [50, 200, 1000]
 
     @variant
     def step_size(self):
