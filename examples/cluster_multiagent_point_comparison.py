@@ -57,7 +57,7 @@ class VG(VariantGenerator):
 
     @variant
     def d(self):
-        return [1, 2]  # [1, 2] # [1, 2, 10]
+        return [2]  # [1, 2] # [1, 2, 10]
 
     @variant
     def exit_when_done(self):
@@ -119,7 +119,8 @@ class VG(VariantGenerator):
         return [
             # "OneStepNoStateEnv",
             # "NoStateEnv",
-            "MultiagentPointEnv",
+            # "MultiagentPointEnv",
+            "MultigoalEnv",
             # "MultiactionPointEnv",
         ]
 
@@ -134,6 +135,8 @@ def gen_run_task(baseline_cls):
             from rllab.envs.no_state_env import NoStateEnv as MEnv
         elif vv['env'] == "OneStepNoStateEnv":
             from rllab.envs.one_step_no_state_env import OneStepNoStateEnv as MEnv
+        elif vv['env'] == "MultigoalEnv":
+            from rllab.envs.multigoal_env import MultigoalEnv as MEnv
         # running average normalization
         env = TfEnv(NormalizedEnv(NormalizeObs(
             MEnv(d=vv['d'], k=vv['k'], horizon=vv['max_path_length'],

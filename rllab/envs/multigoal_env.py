@@ -13,30 +13,33 @@ LOW = -0.1
 HIGH = 0.1
 
 
-class MultiagentPointEnv(MultiagentEnv):
-    def __init__(self, d=2, **kwargs):
+class MultigoalEnv(MultiagentEnv):
+    def __init__(self, d=2, ngroups=2, **kwargs):
         self.d = d
-        super(MultiagentPointEnv, self).__init__(**kwargs)
+        self._ngroups = ngroups
+        super(MultigoalEnv, self).__init__(**kwargs)
 
     @property
     def observation_space(self):
-        return Box(low=-np.inf, high=np.inf, shape=(self.d, self.nagents))
+        return Box(low=-np.inf, high=np.inf, shape=(self.d, self._ngroups * self.nagents))
 
     @property
     def action_space(self):
         # FIXME(cathywu) reshaping might cause issues here
         # return Box(low=LOW, high=HIGH, shape=(self.d, self.nagents))
-        return Box(low=LOW, high=HIGH, shape=(1, self.d * self.nagents))
+        return Box(low=LOW, high=HIGH, shape=(1, self.d * self._ngroups * self.nagents))
 
     def reset(self):
-        self._done = np.zeros(self.nagents)
-        self._positions = np.random.uniform(0, 2, size=self.observation_space.shape)
-        self._state = self._positions  # fully observed
+        self._done = np.zeros(self.nagents * self._ngroups)
+        rand = np.random.uniform(-0.5, 0.5, size=self.observation_space.shape)
+        self._positions1 = np.tile([0, 1.5], [self.nagents, 1]).T + rand[:, :self.nagents]
+        self._positions2 = np.tile([1.5, 0], [self.nagents, 1]).T + rand[:, self.nagents:]
+        self._goal1 = np.tile([0, -1.5], [self.nagents, 1]).T
+        self._goal2 = np.tile([-1.5, 0], [self.nagents, 1]).T
+        self._state = np.hstack([self._positions1, self._positions2])  # fully observed
         self._actions = np.zeros(self.action_space.shape).reshape(self.observation_space.shape)
         self._reward = -np.inf  # For plotting only
         self._iter = 0
-
-        self._done_reward = 1  # FIXME(cathywu) remove in cleanup
 
         observation = np.copy(self._state)
         # self.plot(agent=0, tag='reset')
@@ -48,11 +51,13 @@ class MultiagentPointEnv(MultiagentEnv):
         action_mat = np.reshape(action, self.observation_space.shape)
         self._actions = action_mat  # For plotting only
         if self._exit_when_done:
-            self._positions = self._positions + action_mat * np.tile(
-                (1 - np.isnan(self._done)), [self.d, 1])
+            done_mat = np.tile((1 - np.isnan(self._done)), [self.d, 1])
+            self._positions1 = self._positions1 + action_mat[:, :self.nagents] * done_mat[:, :self.nagents]
+            self._positions2 = self._positions2 + action_mat[:, self.nagents:] * done_mat[:, self.nagents:]
         else:
-            self._positions = self._positions + action_mat
-        self._state = self._positions  # fully observed
+            self._positions1 = self._positions1 + action_mat[:, :self.nagents]
+            self._positions2 = self._positions2 + action_mat[:, self.nagents:]
+        self._state = np.hstack([self._positions1, self._positions2])  # fully observed
         # self.plot(agent=0)
 
         collision = multiagent_utils.is_collision(self._state, eps=self._collision_epsilon) if self._collisions else False
@@ -67,7 +72,10 @@ class MultiagentPointEnv(MultiagentEnv):
         #          - NOT_DONE_PENALTY
         # reward = - np.sum(np.sqrt(np.sum(np.square(self._state), axis=0))) - \
         #          NOT_DONE_PENALTY
-        dist = np.linalg.norm(self._positions, axis=0)
+        # FIXME(cathywu) correct norm wrt goal target
+        dist1 = np.linalg.norm(self._positions1 - self._goal1, axis=0)
+        dist2 = np.linalg.norm(self._positions2 - self._goal2, axis=0)
+        dist = np.concatenate([dist1, dist2])
         if self._exit_when_done:
             goal_reward = -dist * (1 - np.isnan(self._done)) + self._done_reward * np.isnan(self._done)
         else:
@@ -100,18 +108,20 @@ class MultiagentPointEnv(MultiagentEnv):
         """
         import matplotlib.pyplot as plt
         import cmath
-        agentx = self._positions[0, agent]
-        agenty = self._positions[1, agent]
+        positions = np.hstack([self._positions1, self._positions2])  # fully observed
+        agentx = positions[0, agent]
+        agenty = positions[1, agent]
 
-        plt.scatter(self._positions[0, :], self._positions[1, :])
-        done = self._positions[:, np.isnan(self._done)]
+        plt.scatter(positions[0, :self.nagents], positions[1, :self.nagents], color='b')
+        plt.scatter(positions[0, self.nagents:], positions[1, self.nagents:], color='m')
+        done = positions[:, np.isnan(self._done)]
         if self._show_actions:
             # Plot trace of where the agents are coming from
-            for i in range(self.nagents):
+            for i in range(self.nagents * self._ngroups):
                 # actions = np.reshape(self._actions, (self.d, self.nagents))
                 dx, dy = self._actions[0, i], self._actions[1, i]
                 # NOTE: Action is already applied, so we need to "undo" it
-                x, y = self._positions[0, i]-dx, self._positions[1, i]-dy
+                x, y = positions[0, i]-dx, positions[1, i]-dy
                 plt.arrow(x, y, dx, dy, head_width=0.03, head_length=0.01,
                           fc='k', ec='k')
 
@@ -143,4 +153,3 @@ class MultiagentPointEnv(MultiagentEnv):
             fname = 'data/visualization/lidar-%s-agent%s' % (self._iter, agent)
         plt.savefig(fname)
         plt.clf()
-
