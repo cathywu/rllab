@@ -26,7 +26,7 @@ from rllab import config_personal
 
 debug = False
 
-exp_prefix = "cluster-multiagent-v14" if not debug \
+exp_prefix = "cluster-multiagent-v13-attempt1" if not debug \
     else "cluster-multiagent-debug"
 mode = 'ec2' if not debug else 'local'  # 'local_docker', 'ec2', 'local'
 max_path_length = 50
@@ -42,7 +42,7 @@ class VG(VariantGenerator):
     def baseline(self):
         return [
             "ActionDependentLinearFeatureBaseline",
-            # "LinearFeatureBaseline",
+            "LinearFeatureBaseline",
             # "ZeroBaseline",
             # "ActionDependentGaussianMLPBaseline",
             # "GaussianMLPBaseline",
@@ -50,9 +50,7 @@ class VG(VariantGenerator):
 
     @variant
     def k(self):
-        return [6, 50, 200, 500, 1000]  # [6, 50, 200]  # , 10,
-        # 100,
-        # 1000]
+        return [200, 500, 1000]  # [6, 50, 200, 500, 1000]
 
     @variant
     def d(self):
@@ -64,7 +62,7 @@ class VG(VariantGenerator):
             100 / (1.0-holdout_factor),
             500 / (1.0-holdout_factor),
             1000 / (1.0-holdout_factor),
-            5000 / (1.0-holdout_factor),
+            # 5000 / (1.0-holdout_factor),
             # 10000 / (1.0-holdout_factor),
             # 25000,
         ]
@@ -92,10 +90,10 @@ class VG(VariantGenerator):
     @variant
     def env(self):
         return [
-            "OneStepNoStateEnv",
-            "NoStateEnv",
+            # "OneStepNoStateEnv",
+            # "NoStateEnv",
             "MultiagentPointEnv",
-            "MultiactionPointEnv",
+            # "MultiactionPointEnv",
         ]
 
 
@@ -165,8 +163,8 @@ def gen_run_task(baseline_cls):
             # Uncomment both lines (this and the plot parameter below) to enable plotting
             # plot=True,
             center_adv=False,  # This disables whitening of advantages
-            extra_baselines=[LinearFeatureBaseline(**baseline_args),
-                             ZeroBaseline(**baseline_args)],
+            # extra_baselines=[LinearFeatureBaseline(**baseline_args),
+            #                  ZeroBaseline(**baseline_args)],
         )
         algo.train()
 
