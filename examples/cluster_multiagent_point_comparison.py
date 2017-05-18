@@ -26,7 +26,7 @@ from rllab import config_personal
 
 debug = False
 
-exp_prefix = "cluster-multiagent-v13-attempt1" if not debug \
+exp_prefix = "cluster-multiagent-v13-attempt2" if not debug \
     else "cluster-multiagent-debug"
 mode = 'ec2' if not debug else 'local'  # 'local_docker', 'ec2', 'local'
 max_path_length = 50

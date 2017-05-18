@@ -47,7 +47,8 @@ class MultiagentPointEnv(Env):
         #          NOT_DONE_PENALTY
 
         collision = is_collision(self._state) if self._collisions else False
-        done = np.all(np.abs(self._state) < 0.01) or collision
+        done = np.all(np.abs(self._state) < 0.01)
+        # done = np.all(np.abs(self._state) < 0.01) or collision
         next_observation = np.copy(self._state)
         return Step(observation=next_observation, reward=reward, done=done)
 
