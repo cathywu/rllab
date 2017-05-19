@@ -76,11 +76,12 @@ class VG(VariantGenerator):
 
     @variant
     def board(self):
-        return [mat_to_mask(arr[0][i]) for i in range(20)] + \
-            [mat_to_mask(arr[1][i]) for i in range(20)]
-        # return [(
-        # 4, np.array([[0, 1], [1, 3], [2, 0], [3, 2]]), np.array([2, 3, 1, 1]),
-        # 1000), (
+        # return [mat_to_mask(arr[0][i]) for i in range(20)] + \
+        #     [mat_to_mask(arr[1][i]) for i in range(20)]
+        return [
+            (4, [[0, 1], [1, 3], [2, 0], [3, 2]], [2, 3, 1, 1], 1000),
+        ]
+        # (
         # 4, np.array([[0, 2], [0, 3], [3, 0], [3, 1]]), np.array([2, 1, 3, 2]),
         # 1000), (
         # 9, np.array([[0, 2], [0, 3], [3, 0], [3, 1]]), np.array([2, 1, 3, 2]),

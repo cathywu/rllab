@@ -14,9 +14,10 @@ HIGH = 0.1
 
 
 class MultiagentPointEnv(MultiagentEnv):
-    def __init__(self, d=2, repeat=1, **kwargs):
+    def __init__(self, d=2, repeat=1, goal_weight=1, **kwargs):
         self.d = d
         self._repeat = repeat
+        self._goal_weight = goal_weight
         super(MultiagentPointEnv, self).__init__(**kwargs)
 
     @property
@@ -74,7 +75,7 @@ class MultiagentPointEnv(MultiagentEnv):
                 goal_reward = -dist * (1 - np.isnan(self._done)) + self._done_reward * np.isnan(self._done)
             else:
                 goal_reward = -dist
-            reward = sum(goal_reward) - self._collision_penalty * collision
+            reward = sum(goal_reward) * self._goal_weight - self._collision_penalty * collision
 
             next_observation = np.copy(self._state)
             self._done[dist < self._done_epsilon] = np.nan
