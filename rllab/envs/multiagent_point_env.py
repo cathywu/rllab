@@ -86,7 +86,7 @@ class MultiagentPointEnv(MultiagentEnv):
             self._reward = total_reward  # For plotting only
             # if reward > -3:
             #     self.plot(agent=0)
-        return Step(observation=next_observation, reward=reward, done=done)
+        return Step(observation=next_observation, reward=total_reward, done=done)
 
     def render(self):
         self.plot(tag="render")

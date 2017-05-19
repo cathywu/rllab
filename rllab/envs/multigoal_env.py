@@ -39,8 +39,8 @@ class MultigoalEnv(MultiagentEnv):
         a = self._corridor/2
         rand = np.random.uniform(-a, a, size=self.observation_space.shape)
         self._positions1 = np.tile([0, 1.5], [self.nagents, 1]).T + rand[:, :self.nagents]
-        self._positions2 = np.tile([0, -1.5], [self.nagents, 1]).T + rand[:, self.nagents:]
-        # self._positions2 = np.tile([1.5, 0], [self.nagents, 1]).T + rand[:, self.nagents:]
+        # self._positions2 = np.tile([0, -1.5], [self.nagents, 1]).T + rand[:, self.nagents:]
+        self._positions2 = np.tile([1.5, 0], [self.nagents, 1]).T + rand[:, self.nagents:]
 
         if self._ignore_intra_collisions:
             self._big_mask = block_diag(*[np.ones((self.nagents, self.nagents)) \
@@ -49,8 +49,8 @@ class MultigoalEnv(MultiagentEnv):
             self._big_mask = None
 
         self._goal1 = np.tile([0, -1.5], [self.nagents, 1]).T
-        self._goal2 = np.tile([0, 1.5], [self.nagents, 1]).T
-        # self._goal2 = np.tile([-1.5, 0], [self.nagents, 1]).T
+        # self._goal2 = np.tile([0, 1.5], [self.nagents, 1]).T
+        self._goal2 = np.tile([-1.5, 0], [self.nagents, 1]).T
         # Intersection-like constraints
         self._constraints = [
             (np.tile([a, a], [self.nagents, 1]).T,
@@ -138,7 +138,7 @@ class MultigoalEnv(MultiagentEnv):
             self._reward = total_reward  # For plotting only
             # if reward > -3:
             #     self.plot(agent=0)
-        return Step(observation=next_observation, reward=reward, done=done)
+        return Step(observation=next_observation, reward=total_reward, done=done)
 
     def render(self):
         self.plot(tag="render")
