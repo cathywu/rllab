@@ -18,6 +18,7 @@ from rllab.envs.normalize_obs import NormalizeObs
 from rllab.envs.normalized_env import NormalizedEnv
 from sandbox.rocky.tf.envs.base import TfEnv
 from sandbox.rocky.tf.policies.gaussian_mlp_policy import GaussianMLPPolicy
+from sandbox.rocky.tf.policies.auto_mlp_policy import AutoMLPPolicy
 from rllab.misc.instrument import run_experiment_lite
 from rllab.baselines import util
 
@@ -25,7 +26,7 @@ from rllab.misc.instrument import VariantGenerator, variant
 from rllab import config
 from rllab import config_personal
 
-debug = False
+debug = True
 
 exp_prefix = "cluster-multiagent-v23" if not debug \
     else "cluster-multiagent-debug"
@@ -161,7 +162,7 @@ def gen_run_task(baseline_cls):
         # env = TfEnv(normalize(MultiagentPointEnv(d=1, k=6),
         #                       normalize_obs=True))
 
-        policy = GaussianMLPPolicy(
+        policy = AutoMLPPolicy(
             env_spec=env.spec,
             name="policy",
             hidden_sizes=(200, 200),
