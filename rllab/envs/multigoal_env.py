@@ -42,6 +42,11 @@ class MultigoalEnv(MultiagentEnv):
         # self._positions2 = np.tile([0, -1.5], [self.nagents, 1]).T + rand[:, self.nagents:]
         self._positions2 = np.tile([1.5, 0], [self.nagents, 1]).T + rand[:, self.nagents:]
 
+        if not hasattr(self, '_ignore_intra_collisions'):
+            self._ignore_intra_collisions = False  # FIXME(cathywu) remove in cleanup
+        if not hasattr(self, '_repeat'):
+            self._repeat = 1  # FIXME(cathywu) remove in cleanup
+
         if self._ignore_intra_collisions:
             self._big_mask = block_diag(*[np.ones((self.nagents, self.nagents)) \
                                           for _ in range(self._ngroups)])

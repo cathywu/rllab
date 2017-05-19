@@ -9,7 +9,7 @@ import rllab.misc.logger as logger
 from rllab.envs.multiagent_env import MultiagentEnv
 
 
-class Sudoku(MultiagentEnv):
+class SudokuEnv(MultiagentEnv):
     def __init__(self, d=4, mask=None, mask_values=None, **kwargs):
         self.d = d
         self._mask = np.array(mask)
@@ -17,7 +17,7 @@ class Sudoku(MultiagentEnv):
         # self._mask = np.array([[0, 1], [1, 3], [2, 0], [3, 2]])
         # self._mask_values = np.array([2, 3, 1, 1])
 
-        super(Sudoku, self).__init__(**kwargs)
+        super(SudokuEnv, self).__init__(**kwargs)
 
     @property
     def observation_space(self):
