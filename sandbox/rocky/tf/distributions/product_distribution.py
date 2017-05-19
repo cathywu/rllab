@@ -15,12 +15,24 @@ class ProductDistribution(Distribution):
     def dim(self):
         return self._dim
 
-    def _split_x(self, x):
+    def _split_x(self, x, idx=None):
         """
         Split the tensor variable or value into per component.
         """
         cum_dims = list(np.cumsum(self.dimensions))
         out = []
+        if idx is not None:
+            cum_dims = [0] + cum_dims
+            sliced = x[:, cum_dims[idx]:cum_dims[idx+1]]
+            dist = self.distributions[idx]
+            if isinstance(dist, Categorical):
+                if isinstance(sliced, (tf.Variable, tf.Tensor)):
+                    sliced = tf.cast(sliced, tf.uint8)
+                else:
+                    sliced = np.cast['uint8'](sliced)
+            out.append(sliced)
+            return out
+
         for slice_from, slice_to, dist in zip([0] + cum_dims, cum_dims, self.distributions):
             sliced = x[:, slice_from:slice_to]
             if isinstance(dist, Categorical):
@@ -31,11 +43,19 @@ class ProductDistribution(Distribution):
             out.append(sliced)
         return out
 
-    def _split_dist_info(self, dist_info):
+    def _split_dist_info(self, dist_info, idx=None):
         """
         Split the dist info dictionary into per component.
         """
         ret = []
+        if idx is not None:
+            dist = self.distributions[idx]
+            cur_dist_info = dict()
+            for k in dist.dist_info_keys:
+                cur_dist_info[k] = dist_info["id_%d_%s" % (idx, k)]
+            ret.append(cur_dist_info)
+            return ret
+
         for idx, dist in enumerate(self.distributions):
             cur_dist_info = dict()
             for k in dist.dist_info_keys:
@@ -59,11 +79,16 @@ class ProductDistribution(Distribution):
             ret += dist_i.log_likelihood_sym(x_var_i, dist_info_var_i)
         return ret
 
-    def likelihood_ratio_sym(self, x_var, old_dist_info_vars, new_dist_info_vars):
-        splitted_x_vars = self._split_x(x_var)
-        old_dist_info_vars = self._split_dist_info(old_dist_info_vars)
-        new_dist_info_vars = self._split_dist_info(new_dist_info_vars)
+    def likelihood_ratio_sym(self, x_var, old_dist_info_vars, new_dist_info_vars, idx=None):
+        splitted_x_vars = self._split_x(x_var, idx=idx)
+        old_dist_info_vars = self._split_dist_info(old_dist_info_vars, idx=idx)
+        new_dist_info_vars = self._split_dist_info(new_dist_info_vars, idx=idx)
         ret = 1
+        if idx is not None:
+            for x_var_i, old_dist_info_i, new_dist_info_i, dist_i in \
+                    zip(splitted_x_vars, old_dist_info_vars, new_dist_info_vars, [self.distributions[idx]]):
+                ret = dist_i.likelihood_ratio_sym(x_var_i, old_dist_info_i, new_dist_info_i)
+                return ret
         for x_var_i, old_dist_info_i, new_dist_info_i, dist_i in \
                 zip(splitted_x_vars, old_dist_info_vars, new_dist_info_vars, self.distributions):
             ret *= dist_i.likelihood_ratio_sym(x_var_i, old_dist_info_i, new_dist_info_i)

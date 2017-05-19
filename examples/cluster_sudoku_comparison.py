@@ -42,7 +42,7 @@ class VG(VariantGenerator):
     @variant
     def baseline(self):
         return [
-            "LinearFeatureBaseline",
+            # "LinearFeatureBaseline",
             "ActionDependentLinearFeatureBaseline",
             # "ZeroBaseline",
             # "ActionDependentGaussianMLPBaseline",
@@ -168,7 +168,7 @@ def gen_run_task(baseline_cls):
         policy = AutoMLPPolicy(
             env_spec=env.spec,
             name="policy",
-            hidden_sizes=(200, 200),
+            hidden_sizes=(),
             # hidden_sizes=(100, 50, 25),
             hidden_nonlinearity=tf.nn.tanh,
         )

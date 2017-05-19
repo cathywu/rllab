@@ -5,7 +5,11 @@ from sandbox.rocky.tf.optimizers.penalty_lbfgs_optimizer import PenaltyLbfgsOpti
 from sandbox.rocky.tf.algos.batch_polopt import BatchPolopt
 from sandbox.rocky.tf.misc import tensor_utils
 from sandbox.rocky.tf.distributions.diagonal_gaussian import DiagonalGaussian
+from sandbox.rocky.tf.distributions.categorical import Categorical
+from sandbox.rocky.tf.distributions.product_distribution import ProductDistribution
 import tensorflow as tf
+from sandbox.rocky.tf.spaces.box import Box
+from sandbox.rocky.tf.spaces.product import Product
 
 
 class NPOAction(BatchPolopt):
@@ -64,26 +68,24 @@ class NPOAction(BatchPolopt):
             }
         state_info_vars_list = [state_info_vars[k] for k in self.policy.state_info_keys]
 
-        dist1 = DiagonalGaussian(1)
-
-        # TODO(cathywu) remove, for debugging
-        self.dist1 = dist1
-        self.dist1.means = [0 for _ in range(self.nactions)]
-        self.dist1.log_stds = [0 for _ in range(self.nactions)]
-        self.dist1.zs = [0 for _ in range(self.nactions)]
-        self.dist1.logli_new = [0 for _ in range(self.nactions)]
-        self.dist1.logli_old = [0 for _ in range(self.nactions)]
-        self.dist1.new_dist_info_vars = [0 for _ in range(self.nactions)]
-        self.dist1.old_dist_info_vars = [0 for _ in range(self.nactions)]
+        # FIXME(cathywu) hack to handle sudoku env and multiagent point envs
+        if isinstance(self.env.action_space, Box):
+            dist1 = DiagonalGaussian(1)
 
         lrs = [0 for _ in range(self.nactions)]
         dist_info_vars = self.policy.dist_info_sym(obs_var, state_info_vars)
         kl = dist.kl_sym(old_dist_info_vars, dist_info_vars)
         for k in range(self.nactions):
-            # Convention: shape [?, 1]
-            lrs[k] = tf.expand_dims(dist1.likelihood_ratio_sym(action_var,
-                                                old_dist_info_vars,
-                                                dist_info_vars, idx=k), axis=1)
+            # FIXME(cathywu) hack to handle sudoku env and multiagent point envs
+            if isinstance(self.env.action_space, Product):
+                lrs[k] = tf.expand_dims(dist.likelihood_ratio_sym(action_var,
+                                                                  old_dist_info_vars,
+                                                                  dist_info_vars, idx=k), axis=1)
+            elif isinstance(self.env.action_space, Box):
+                # Convention: shape [?, 1]
+                lrs[k] = tf.expand_dims(dist1.likelihood_ratio_sym(action_var,
+                                                                  old_dist_info_vars,
+                                                                  dist_info_vars, idx=k), axis=1)
 
         mean_kl = tf.reduce_mean(kl)
         # Sum of product between adv and ratio of likelihoods

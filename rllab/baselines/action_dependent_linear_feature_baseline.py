@@ -12,6 +12,7 @@ class ActionDependentLinearFeatureBaseline(ActionDependentBaseline):
         self._sub_baselines = [LinearFeatureBaseline(env_spec,
                                                      reg_coeff=reg_coeff,
                                                      action_dependent=True,
+                                                     stride=self.stride,
                                                      include_time=include_time,
                                                      mix_fraction=mix_fraction,
                                                      ) for _ in range(

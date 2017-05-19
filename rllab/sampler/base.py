@@ -45,6 +45,7 @@ class BaseSampler(Sampler):
         :type algo: BatchPolopt
         """
         self.algo = algo
+        self.nactions = self.algo.nactions
         self.action_dependent = bs_util.is_action_dependent(self.algo.baseline)
 
     def process_baselines(self, baseline, path_baseline, path):
@@ -57,9 +58,8 @@ class BaseSampler(Sampler):
             # 1-step bellman error / TD error
             return path_baselines[:-1], deltas
         else:
-            nactions = path["actions"].shape[-1]
-            path_baselines = np.hstack([path_baseline, np.zeros((nactions, 1))])
-            deltas = (np.tile(path["rewards"], [nactions, 1]) + \
+            path_baselines = np.hstack([path_baseline, np.zeros((self.nactions, 1))])
+            deltas = (np.tile(path["rewards"], [self.nactions, 1]) + \
                       self.algo.discount * path_baselines[:, 1:] - \
                       path_baselines[:, :-1]).T
             return path_baselines[:, :-1], deltas

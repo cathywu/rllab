@@ -14,6 +14,7 @@ class LinearFeatureBaseline(Baseline):
             mix_fraction=1.,
             include_time=True,
             action_dependent=False,
+            stride=1,
             **kwargs
     ):
         self.observation_space = env_spec.observation_space
@@ -21,6 +22,7 @@ class LinearFeatureBaseline(Baseline):
         self.include_time = include_time
         self.nactions = env_spec.action_space.flat_dim
         self.action_dependent = action_dependent
+        self.stride = stride  # length of idx, if applicable
         self.regressor = MovingTargetRegressor(
             LinearRegressor(
                 input_size=self.feature_size,
@@ -36,7 +38,9 @@ class LinearFeatureBaseline(Baseline):
         l = len(path["rewards"])
         feats = [o, o ** 2]
         if idx is not None:
-            minus_idx = [x for x in range(self.nactions) if x != idx]
+            if not isinstance(idx, (list, range)):
+                idx = [idx]
+            minus_idx = [x for x in range(self.nactions) if x not in idx]
             a = path["actions"][:, minus_idx]
             feats.extend([a, a ** 2])
         if self.include_time:
@@ -51,7 +55,7 @@ class LinearFeatureBaseline(Baseline):
         if self.include_time:
             fsize += 3
         if self.action_dependent:
-            fsize += (self.nactions - 1) * 2
+            fsize += (self.nactions - self.stride) * 2
         return fsize
 
     def fit(self, paths, idx=None):
