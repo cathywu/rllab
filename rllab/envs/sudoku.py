@@ -1,19 +1,12 @@
 import numpy as np
 import itertools
 
-from rllab.envs.base import Env
 from sandbox.rocky.tf.spaces.box import Box
-from rllab.spaces.discrete import Discrete as TheanoDiscrete
-from rllab.spaces.product import Product as TheanoProduct
+from rllab.spaces.discrete import Discrete
+from rllab.spaces.product import Product
 from rllab.envs.base import Step
 import rllab.misc.logger as logger
-from rllab.envs import multiagent_utils as ma_utils
 from rllab.envs.multiagent_env import MultiagentEnv
-
-NOT_DONE_PENALTY = 1
-BOX = 1
-LOW = -0.1
-HIGH = 0.1
 
 
 class Sudoku(MultiagentEnv):
@@ -28,7 +21,7 @@ class Sudoku(MultiagentEnv):
 
     @property
     def action_space(self):
-        return TheanoProduct(*[TheanoDiscrete(self.d) for _ in range(self.d * self.d)])
+        return Product(*[Discrete(self.d) for _ in range(self.d * self.d)])
 
     def violations(self, board):
         """
@@ -61,6 +54,9 @@ class Sudoku(MultiagentEnv):
         self._reward = -np.inf  # For plotting only
         self._iter = 0
 
+        self._mask = np.array([[0, 1], [1, 3], [2, 0], [3, 2]])
+        self._mask_values = np.array([2, 3, 1, 1])
+
         observation = np.copy(self._state)
         # self.plot(agent=0, tag='reset')
         return observation
@@ -69,8 +65,12 @@ class Sudoku(MultiagentEnv):
         self._iter += 1
 
         done = True
+        board = np.reshape(action, [self.d, self.d])
+        # Use pre-filled values
+        board[self._mask[:, 0], self._mask[:, 1]] = self._mask_values
         # count pairs of violations
-        reward = -self.violations(np.reshape(action, [self.d, self.d]))
+        reward = -self.violations(board)
+        # reward = np.exp(-0.1*self.violations(board))
         self.reward = reward  # For plotting only
         next_observation = np.copy(self._state)
         return Step(observation=next_observation, reward=reward, done=done)

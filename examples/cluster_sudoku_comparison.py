@@ -31,7 +31,7 @@ debug = True
 exp_prefix = "cluster-sudoku-v0" if not debug \
     else "cluster-sudoku-debug"
 mode = 'ec2' if not debug else 'local'  # 'local_docker', 'ec2', 'local'
-n_itr = 2000 if not debug else 100
+n_itr = 2000 if not debug else 200
 holdout_factor = 0.0
 
 # Index among variants to start at
@@ -51,11 +51,11 @@ class VG(VariantGenerator):
 
     @variant
     def k(self):
-        return [2]  # , 500]  # [6, 50, 200, 500, 1000]
+        return [2]
 
     @variant
     def d(self):
-        return [4]  # [4, 9]
+        return [4]  # [1, 2] # [1, 2, 10]
 
     @variant
     def exit_when_done(self):
@@ -122,21 +122,34 @@ class VG(VariantGenerator):
 
     @variant
     def gae_lambda(self):
-        return [1.0]  # 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.95, 0.97]
+        return [1.0] # [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.95, 0.97]
 
     @variant
     def env(self):
         return [
+            # "OneStepNoStateEnv",
+            # "NoStateEnv",
+            # "MultiagentPointEnv",
+            # "MultigoalEnv",
             "Sudoku",
+            # "MultiactionPointEnv",
         ]
 
 
 def gen_run_task(baseline_cls):
     def run_task(vv):
-        if vv['env'] == "Sudoku":
+        if vv['env'] == "MultiagentPointEnv":
+            from rllab.envs.multiagent_point_env import MultiagentPointEnv as MEnv
+        elif vv['env'] == "MultiactionPointEnv":
+            from rllab.envs.multiaction_point_env import MultiactionPointEnv as MEnv
+        elif vv['env'] == "NoStateEnv":
+            from rllab.envs.no_state_env import NoStateEnv as MEnv
+        elif vv['env'] == "OneStepNoStateEnv":
+            from rllab.envs.one_step_no_state_env import OneStepNoStateEnv as MEnv
+        elif vv['env'] == "MultigoalEnv":
+            from rllab.envs.multigoal_env import MultigoalEnv as MEnv
+        elif vv['env'] == "Sudoku":
             from rllab.envs.sudoku import Sudoku as MEnv
-        else:
-            raise NotImplementedError
         # running average normalization
         env = TfEnv(NormalizedEnv(NormalizeObs(
             MEnv(d=vv['d'], k=vv['k'], horizon=vv['max_path_length'],
@@ -155,7 +168,7 @@ def gen_run_task(baseline_cls):
         policy = AutoMLPPolicy(
             env_spec=env.spec,
             name="policy",
-            hidden_sizes=(),
+            hidden_sizes=(200, 200),
             # hidden_sizes=(100, 50, 25),
             hidden_nonlinearity=tf.nn.tanh,
         )
