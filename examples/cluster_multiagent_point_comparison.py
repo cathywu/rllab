@@ -26,9 +26,9 @@ from rllab.misc.instrument import VariantGenerator, variant
 from rllab import config
 from rllab import config_personal
 
-debug = True
+debug = False
 
-exp_prefix = "cluster-multiagent-v23" if not debug \
+exp_prefix = "cluster-multiagent-v24" if not debug \
     else "cluster-multiagent-debug"
 mode = 'ec2' if not debug else 'local'  # 'local_docker', 'ec2', 'local'
 n_itr = 2000 if not debug else 2
@@ -97,6 +97,10 @@ class VG(VariantGenerator):
         return [10]  # [1000, 100]  # , 200, 100, 50]  # 10
 
     @variant
+    def ignore_intra_collisions(self):
+        return [True]  # , False]
+
+    @variant
     def repeat_action(self):
         return [1]  # [5]
 
@@ -122,14 +126,14 @@ class VG(VariantGenerator):
 
     @variant
     def gae_lambda(self):
-        return [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.95, 0.97]
+        return [0.3, 0.7, 0.97]  # [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.95, 0.97]
 
     @variant
     def env(self):
         return [
             # "OneStepNoStateEnv",
             # "NoStateEnv",
-            "MultiagentPointEnv",
+            # "MultiagentPointEnv",
             "MultigoalEnv",
             # "MultiactionPointEnv",
         ]
@@ -156,7 +160,9 @@ def gen_run_task(baseline_cls):
                  done_reward=vv['done_reward'],
                  collision_epsilon=vv['collision_epsilon'],
                  collision_penalty=vv['collision_penalty'],
-                 corridor=vv['corridor'], repeat=vv['repeat_action']), clip=5)))
+                 corridor=vv['corridor'],
+                 repeat=vv['repeat_action'],
+                 ignore_intra_collisions=vv['ignore_intra_collisions']), clip=5)))
 
         # exponential weighting normalization
         # env = TfEnv(normalize(MultiagentPointEnv(d=1, k=6),

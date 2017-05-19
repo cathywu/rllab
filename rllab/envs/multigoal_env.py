@@ -1,4 +1,5 @@
 import numpy as np
+from scipy.linalg import block_diag
 
 from rllab.envs.base import Env
 from sandbox.rocky.tf.spaces.box import Box
@@ -14,11 +15,13 @@ HIGH = 0.1
 
 
 class MultigoalEnv(MultiagentEnv):
-    def __init__(self, d=2, ngroups=2, corridor=1, repeat=1, **kwargs):
+    def __init__(self, d=2, ngroups=2, corridor=1, repeat=1,
+                 ignore_intra_collisions=False, **kwargs):
         self.d = d
         self._ngroups = ngroups
         self._corridor = corridor
         self._repeat = repeat
+        self._ignore_intra_collisions = ignore_intra_collisions
         super(MultigoalEnv, self).__init__(**kwargs)
 
     @property
@@ -38,6 +41,13 @@ class MultigoalEnv(MultiagentEnv):
         self._positions1 = np.tile([0, 1.5], [self.nagents, 1]).T + rand[:, :self.nagents]
         self._positions2 = np.tile([0, -1.5], [self.nagents, 1]).T + rand[:, self.nagents:]
         # self._positions2 = np.tile([1.5, 0], [self.nagents, 1]).T + rand[:, self.nagents:]
+
+        if self._ignore_intra_collisions:
+            self._big_mask = block_diag(*[np.ones((self.nagents, self.nagents)) \
+                                          for _ in range(self._ngroups)])
+        else:
+            self._big_mask = None
+
         self._goal1 = np.tile([0, -1.5], [self.nagents, 1]).T
         self._goal2 = np.tile([0, 1.5], [self.nagents, 1]).T
         # self._goal2 = np.tile([-1.5, 0], [self.nagents, 1]).T
@@ -79,9 +89,16 @@ class MultigoalEnv(MultiagentEnv):
             # self.plot(agent=0)
 
             if self._exit_when_done:
-                collision = ma_utils.is_collision(self._state, eps=self._collision_epsilon, mask=self._done) if self._collisions else False
+                collision = ma_utils.is_collision(self._state,
+                                                  eps=self._collision_epsilon,
+                                                  mask=self._done,
+                                                  big_mask=self._big_mask) \
+                    if self._collisions else False
             else:
-                collision = ma_utils.is_collision(self._state, eps=self._collision_epsilon) if self._collisions else False
+                collision = ma_utils.is_collision(self._state,
+                                                  eps=self._collision_epsilon,
+                                                  big_mask=self._big_mask) \
+                    if self._collisions else False
             # done = collision
             # done = np.all(np.abs(self._state) < 0.02)
             # done = np.all(np.abs(self._state) < 0.01) or collision

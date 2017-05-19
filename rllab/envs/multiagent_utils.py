@@ -2,7 +2,7 @@ import numpy as np
 import scipy
 
 
-def is_collision(x, eps, mask=None):
+def is_collision(x, eps, mask=None, big_mask=None):
     if mask is not None:
         y = x * np.tile(1 - mask, [x.shape[0], 1])
     else:
@@ -14,6 +14,8 @@ def is_collision(x, eps, mask=None):
     pairwise_dist[np.isnan(pairwise_dist)] = 1e6
     # Exclude diagonal
     pairwise_dist += 1e6 * np.eye(x.shape[1])
+    if big_mask is not None:
+        pairwise_dist += big_mask * 1e6
     return np.sum(np.min(pairwise_dist, axis=1) < eps)
 
 
