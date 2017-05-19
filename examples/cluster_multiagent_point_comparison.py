@@ -28,7 +28,7 @@ from rllab import config_personal
 
 debug = False
 
-exp_prefix = "cluster-multiagent-v25" if not debug \
+exp_prefix = "cluster-multiagent-v24" if not debug \
     else "cluster-multiagent-debug"
 mode = 'ec2' if not debug else 'local'  # 'local_docker', 'ec2', 'local'
 n_itr = 2000 if not debug else 2
@@ -90,7 +90,7 @@ class VG(VariantGenerator):
 
     @variant
     def goal_weight(self):
-        return [0]  # [0, 1]
+        return [1]  # [0, 1]
 
     @variant
     def collision_epsilon(self):
@@ -102,7 +102,7 @@ class VG(VariantGenerator):
 
     @variant
     def ignore_intra_collisions(self):
-        return [False]  # [True]  # , False]
+        return [True]  # [True]  # , False]
 
     @variant
     def repeat_action(self):
@@ -110,7 +110,7 @@ class VG(VariantGenerator):
 
     @variant
     def max_path_length(self):
-        return [1, 2, 3, 4, 5]  # [50]  # [10]  # [50, 200, 1000]
+        return [50]  # [1, 2, 3, 4, 5]  # [50]  # [10]  # [50, 200, 1000]
 
     @variant
     def step_size(self):
@@ -137,8 +137,8 @@ class VG(VariantGenerator):
         return [
             # "OneStepNoStateEnv",
             # "NoStateEnv",
-            "MultiagentPointEnv",
-            # "MultigoalEnv",
+            # "MultiagentPointEnv",
+            "MultigoalEnv",
             # "MultiactionPointEnv",
         ]
 
