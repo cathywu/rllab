@@ -27,7 +27,7 @@ from rllab import config_personal
 
 debug = False
 
-exp_prefix = "cluster-multiagent-v22" if not debug \
+exp_prefix = "cluster-multiagent-v23" if not debug \
     else "cluster-multiagent-debug"
 mode = 'ec2' if not debug else 'local'  # 'local_docker', 'ec2', 'local'
 n_itr = 2000 if not debug else 2
@@ -97,11 +97,11 @@ class VG(VariantGenerator):
 
     @variant
     def repeat_action(self):
-        return [5]
+        return [1]  # [5]
 
     @variant
     def max_path_length(self):
-        return [10]  # [50, 200, 1000]
+        return [50]  # [10]  # [50, 200, 1000]
 
     @variant
     def step_size(self):
