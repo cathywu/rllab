@@ -42,7 +42,7 @@ class VG(VariantGenerator):
     @variant
     def baseline(self):
         return [
-            "LinearFeatureBaseline",
+            # "LinearFeatureBaseline",
             "ActionDependentLinearFeatureBaseline",
             # "ZeroBaseline",
             # "ActionDependentGaussianMLPBaseline",
@@ -90,7 +90,7 @@ class VG(VariantGenerator):
 
     @variant
     def goal_weight(self):
-        return [0]  # [0, 1]
+        return [1]  # [0, 1]
 
     @variant
     def collision_epsilon(self):

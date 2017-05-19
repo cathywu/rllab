@@ -12,7 +12,7 @@ class ActionDependentBaseline(Baseline):
         if isinstance(env_spec.action_space, Product):
             self.nactions = len(env_spec.action_space.components)
             self.stride = env_spec.action_space.components[0].flat_dim
-        elif isinstance(self.env.action_space, Box):
+        elif isinstance(env_spec.action_space, Box):
             self.nactions = env_spec.action_space.flat_dim
             self.stride = 1
         self.action_dependent = True
