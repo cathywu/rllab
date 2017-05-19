@@ -2,7 +2,9 @@ import datetime
 import dateutil.tz
 import sys
 from random import shuffle
+import os
 
+import numpy as np
 import tensorflow as tf
 
 from rllab.baselines.linear_feature_baseline import LinearFeatureBaseline
@@ -26,7 +28,7 @@ from rllab.misc.instrument import VariantGenerator, variant
 from rllab import config
 from rllab import config_personal
 
-debug = True
+debug = False
 
 exp_prefix = "cluster-sudoku-v0" if not debug \
     else "cluster-sudoku-debug"
@@ -37,12 +39,35 @@ holdout_factor = 0.0
 # Index among variants to start at
 offset = 0
 
+sizes = [2, 3]
+arr = [0 for _ in range(len(sizes))]
+for i, size in enumerate(sizes):
+    fname = os.path.join('data', str(size), 'features.npy')
+    arr[i] = np.load(fname)
+
+
+def batch_size(size):
+    if size == 4:
+        return 1000
+    elif size == 9:
+        return 10000
+
+
+def mat_to_mask(mat):
+    size = mat.shape[0]
+    mask = np.vstack(
+        [[x for x in zip(*np.where(mat[i] == 1))] for i in range(size) if np.where(mat[i] == 1)[0].size > 0])
+    values = [[i] * int(np.sum(mat[i])) for i in range(size) if int(np.sum(mat[i])) > 0]
+    mask_values = [x for y in values for x in y]
+    # print('BOARD', mat, mask, mask_values)
+    return (size, mask.tolist(), mask_values, batch_size(size))
+
 
 class VG(VariantGenerator):
     @variant
     def baseline(self):
         return [
-            # "LinearFeatureBaseline",
+            "LinearFeatureBaseline",
             "ActionDependentLinearFeatureBaseline",
             # "ZeroBaseline",
             # "ActionDependentGaussianMLPBaseline",
@@ -50,12 +75,16 @@ class VG(VariantGenerator):
         ]
 
     @variant
-    def k(self):
-        return [2]
-
-    @variant
-    def d(self):
-        return [4]  # [1, 2] # [1, 2, 10]
+    def board(self):
+        return [mat_to_mask(arr[0][i]) for i in range(20)] + \
+            [mat_to_mask(arr[1][i]) for i in range(20)]
+        # return [(
+        # 4, np.array([[0, 1], [1, 3], [2, 0], [3, 2]]), np.array([2, 3, 1, 1]),
+        # 1000), (
+        # 4, np.array([[0, 2], [0, 3], [3, 0], [3, 1]]), np.array([2, 1, 3, 2]),
+        # 1000), (
+        # 9, np.array([[0, 2], [0, 3], [3, 0], [3, 1]]), np.array([2, 1, 3, 2]),
+        # 1000), ]
 
     @variant
     def exit_when_done(self):
@@ -64,41 +93,6 @@ class VG(VariantGenerator):
     @variant
     def collisions(self):
         return [True]  # [True]  # [False, True]
-
-    @variant
-    def batch_size(self):
-        return [
-            # 100 / (1.0-holdout_factor),
-            # 500 / (1.0-holdout_factor),
-            1000 / (1.0-holdout_factor),
-            # 5000 / (1.0-holdout_factor),
-            # 10000 / (1.0-holdout_factor),
-            # 25000,
-        ]
-
-    @variant
-    def corridor(self):
-        return [0.4]  # [0.2, 0.3, 0.4]
-
-    @variant
-    def done_epsilon(self):
-        return [0.01]  # , 0.05]  # [0.05, 0.005]
-
-    @variant
-    def done_reward(self):
-        return [1]  # [1000, 100]  # , 200, 100, 50]  # 10
-
-    @variant
-    def collision_epsilon(self):
-        return [0.05]  # [0.5, 0.005]  # 0.1
-
-    @variant
-    def collision_penalty(self):
-        return [10]  # [1000, 100]  # , 200, 100, 50]  # 10
-
-    @variant
-    def repeat_action(self):
-        return [1]  # [5]
 
     @variant
     def max_path_length(self):
@@ -110,7 +104,7 @@ class VG(VariantGenerator):
 
     @variant
     def baseline_mix_fraction(self):
-        return [1.0]  #, 0.1]  # [0.2, 0.1, 1.0]
+        return [1.0]  # , 0.1]  # [0.2, 0.1, 1.0]
 
     @variant
     def baseline_include_time(self):
@@ -122,7 +116,7 @@ class VG(VariantGenerator):
 
     @variant
     def gae_lambda(self):
-        return [1.0] # [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.95, 0.97]
+        return [1.0]  # [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.95, 0.97]
 
     @variant
     def env(self):
@@ -139,27 +133,24 @@ class VG(VariantGenerator):
 def gen_run_task(baseline_cls):
     def run_task(vv):
         if vv['env'] == "MultiagentPointEnv":
-            from rllab.envs.multiagent_point_env import MultiagentPointEnv as MEnv
+            from rllab.envs.multiagent_point_env import \
+                MultiagentPointEnv as MEnv
         elif vv['env'] == "MultiactionPointEnv":
-            from rllab.envs.multiaction_point_env import MultiactionPointEnv as MEnv
+            from rllab.envs.multiaction_point_env import \
+                MultiactionPointEnv as MEnv
         elif vv['env'] == "NoStateEnv":
             from rllab.envs.no_state_env import NoStateEnv as MEnv
         elif vv['env'] == "OneStepNoStateEnv":
-            from rllab.envs.one_step_no_state_env import OneStepNoStateEnv as MEnv
+            from rllab.envs.one_step_no_state_env import \
+                OneStepNoStateEnv as MEnv
         elif vv['env'] == "MultigoalEnv":
             from rllab.envs.multigoal_env import MultigoalEnv as MEnv
         elif vv['env'] == "Sudoku":
             from rllab.envs.sudoku import Sudoku as MEnv
         # running average normalization
         env = TfEnv(NormalizedEnv(NormalizeObs(
-            MEnv(d=vv['d'], k=vv['k'], horizon=vv['max_path_length'],
-                 collisions=vv['collisions'],
-                 exit_when_done=vv['exit_when_done'],
-                 done_epsilon=vv['done_epsilon'],
-                 done_reward=vv['done_reward'],
-                 collision_epsilon=vv['collision_epsilon'],
-                 collision_penalty=vv['collision_penalty'],
-                 corridor=vv['corridor'], repeat=vv['repeat_action']), clip=5)))
+            MEnv(horizon=vv['max_path_length'], d=vv['board'][0],
+                 mask=vv['board'][1], mask_values=vv['board'][2]), clip=5)))
 
         # exponential weighting normalization
         # env = TfEnv(normalize(MultiagentPointEnv(d=1, k=6),
@@ -173,14 +164,10 @@ def gen_run_task(baseline_cls):
             hidden_nonlinearity=tf.nn.tanh,
         )
 
-        baseline_args = {
-            'env_spec': env.spec,
+        baseline_args = {'env_spec': env.spec,
             'mix_fraction': vv["baseline_mix_fraction"],
             'include_time': vv["baseline_include_time"],
-            'regressor_args': {
-                'holdout_factor': holdout_factor,
-            }
-        }
+            'regressor_args': {'holdout_factor': holdout_factor, }}
         if baseline_cls == "ActionDependentGaussianMLPBaseline":
             baseline = ActionDependentGaussianMLPBaseline(**baseline_args)
         elif baseline_cls == "ActionDependentLinearFeatureBaseline":
@@ -201,7 +188,7 @@ def gen_run_task(baseline_cls):
             env=env,
             policy=policy,
             baseline=baseline,
-            batch_size=vv['batch_size'],
+            batch_size=vv['board'][3],
             max_path_length=vv['max_path_length'],
             n_itr=n_itr,  # 1000
             discount=0.995,

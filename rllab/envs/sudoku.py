@@ -10,8 +10,13 @@ from rllab.envs.multiagent_env import MultiagentEnv
 
 
 class Sudoku(MultiagentEnv):
-    def __init__(self, d=4, **kwargs):
+    def __init__(self, d=4, mask=None, mask_values=None, **kwargs):
         self.d = d
+        self._mask = np.array(mask)
+        self._mask_values = np.array(mask_values)
+        # self._mask = np.array([[0, 1], [1, 3], [2, 0], [3, 2]])
+        # self._mask_values = np.array([2, 3, 1, 1])
+
         super(Sudoku, self).__init__(**kwargs)
 
     @property
@@ -53,9 +58,6 @@ class Sudoku(MultiagentEnv):
         self._actions = self.action_space.sample()
         self._reward = -np.inf  # For plotting only
         self._iter = 0
-
-        self._mask = np.array([[0, 1], [1, 3], [2, 0], [3, 2]])
-        self._mask_values = np.array([2, 3, 1, 1])
 
         observation = np.copy(self._state)
         # self.plot(agent=0, tag='reset')
