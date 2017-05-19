@@ -51,7 +51,7 @@ class VG(VariantGenerator):
 
     @variant
     def k(self):
-        return [6, 50, 200]  # , 500]  # [6, 50, 200, 500, 1000]
+        return [6, 50, 200]  # [6, 50, 200]  # , 500]  # [6, 50, 200, 500, 1000]
 
     @variant
     def d(self):
@@ -90,7 +90,7 @@ class VG(VariantGenerator):
 
     @variant
     def goal_weight(self):
-        return [1]  # [0, 1]
+        return [0]  # [0, 1]
 
     @variant
     def collision_epsilon(self):
