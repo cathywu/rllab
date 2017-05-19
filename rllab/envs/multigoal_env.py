@@ -14,9 +14,11 @@ HIGH = 0.1
 
 
 class MultigoalEnv(MultiagentEnv):
-    def __init__(self, d=2, ngroups=2, **kwargs):
+    def __init__(self, d=2, ngroups=2, corridor=1, repeat=1, **kwargs):
         self.d = d
         self._ngroups = ngroups
+        self._corridor = corridor
+        self._repeat = repeat
         super(MultigoalEnv, self).__init__(**kwargs)
 
     @property
@@ -31,21 +33,24 @@ class MultigoalEnv(MultiagentEnv):
 
     def reset(self):
         self._done = np.zeros(self.nagents * self._ngroups)
-        rand = np.random.uniform(-0.5, 0.5, size=self.observation_space.shape)
+        a = self._corridor/2
+        rand = np.random.uniform(-a, a, size=self.observation_space.shape)
         self._positions1 = np.tile([0, 1.5], [self.nagents, 1]).T + rand[:, :self.nagents]
-        self._positions2 = np.tile([1.5, 0], [self.nagents, 1]).T + rand[:, self.nagents:]
+        self._positions2 = np.tile([0, -1.5], [self.nagents, 1]).T + rand[:, self.nagents:]
+        # self._positions2 = np.tile([1.5, 0], [self.nagents, 1]).T + rand[:, self.nagents:]
         self._goal1 = np.tile([0, -1.5], [self.nagents, 1]).T
-        self._goal2 = np.tile([-1.5, 0], [self.nagents, 1]).T
+        self._goal2 = np.tile([0, 1.5], [self.nagents, 1]).T
+        # self._goal2 = np.tile([-1.5, 0], [self.nagents, 1]).T
         # Intersection-like constraints
         self._constraints = [
-            (np.tile([1, 1], [self.nagents, 1]).T,
+            (np.tile([a, a], [self.nagents, 1]).T,
              np.tile([5, 5], [self.nagents, 1]).T),
             (np.tile([-5, -5], [self.nagents, 1]).T,
-             np.tile([-1, -1], [self.nagents, 1]).T),
-            (np.tile([1, -5], [self.nagents, 1]).T,
-             np.tile([5, -1], [self.nagents, 1]).T),
-            (np.tile([-5, 1], [self.nagents, 1]).T,
-             np.tile([-1, 5], [self.nagents, 1]).T),
+             np.tile([-a, -a], [self.nagents, 1]).T),
+            (np.tile([a, -5], [self.nagents, 1]).T,
+             np.tile([5, -a], [self.nagents, 1]).T),
+            (np.tile([-5, a], [self.nagents, 1]).T,
+             np.tile([-a, 5], [self.nagents, 1]).T),
         ]
         self._state = np.hstack([self._positions1, self._positions2])  # fully observed
         self._actions = np.zeros(self.action_space.shape).reshape(self.observation_space.shape)
@@ -58,61 +63,64 @@ class MultigoalEnv(MultiagentEnv):
 
     def step(self, action):
         self._iter += 1
-        # FIXME(cathywu) check reshaping
         action_mat = np.reshape(action, self.observation_space.shape)
         self._actions = action_mat  # For plotting only
-        if self._exit_when_done:
-            done_mat = np.tile((1 - np.isnan(self._done)), [self.d, 1])
-            self._positions1 = self._positions1 + action_mat[:, :self.nagents] * done_mat[:, :self.nagents]
-            self._positions2 = self._positions2 + action_mat[:, self.nagents:] * done_mat[:, self.nagents:]
-        else:
-            self._positions1 = self._positions1 + action_mat[:, :self.nagents]
-            self._positions2 = self._positions2 + action_mat[:, self.nagents:]
-        self._state = np.hstack([self._positions1, self._positions2])  # fully observed
-        # self.plot(agent=0)
 
-        if self._exit_when_done:
-            collision = ma_utils.is_collision(self._state, eps=self._collision_epsilon, mask=self._done) if self._collisions else False
-        else:
-            collision = ma_utils.is_collision(self._state, eps=self._collision_epsilon) if self._collisions else False
-        # done = collision
-        # done = np.all(np.abs(self._state) < 0.02)
-        # done = np.all(np.abs(self._state) < 0.01) or collision
-        done = False
+        total_reward = 0
+        for i in range(self._repeat):
+            if self._exit_when_done:
+                done_mat = np.tile((1 - np.isnan(self._done)), [self.d, 1])
+                self._positions1 = self._positions1 + action_mat[:, :self.nagents] * done_mat[:, :self.nagents]
+                self._positions2 = self._positions2 + action_mat[:, self.nagents:] * done_mat[:, self.nagents:]
+            else:
+                self._positions1 = self._positions1 + action_mat[:, :self.nagents]
+                self._positions2 = self._positions2 + action_mat[:, self.nagents:]
+            self._state = np.hstack([self._positions1, self._positions2])  # fully observed
+            # self.plot(agent=0)
 
-        # reward = - np.sum(np.square(self._state)) - self._collision_penalty * collision
-        # reward = min(np.sum(-np.log(np.abs(self._state))), 100) + 1
-        #                 - self._collision_penalty * collision + done * 50
-        #          - NOT_DONE_PENALTY
-        # reward = - np.sum(np.sqrt(np.sum(np.square(self._state), axis=0))) - \
-        #          NOT_DONE_PENALTY
-        # FIXME(cathywu) correct norm wrt goal target
-        dist1 = np.linalg.norm(self._positions1 - self._goal1, axis=0)
-        dist2 = np.linalg.norm(self._positions2 - self._goal2, axis=0)
-        dist = np.concatenate([dist1, dist2])
-        if self._exit_when_done:
-            goal_reward = -dist * (1 - np.isnan(self._done)) + self._done_reward * np.isnan(self._done)
-        else:
-            goal_reward = -dist
+            if self._exit_when_done:
+                collision = ma_utils.is_collision(self._state, eps=self._collision_epsilon, mask=self._done) if self._collisions else False
+            else:
+                collision = ma_utils.is_collision(self._state, eps=self._collision_epsilon) if self._collisions else False
+            # done = collision
+            # done = np.all(np.abs(self._state) < 0.02)
+            # done = np.all(np.abs(self._state) < 0.01) or collision
+            done = False
 
-        # Constraints violation rewards
-        violation1 = np.zeros(self.nagents, dtype=np.bool)
-        violation2 = np.zeros(self.nagents, dtype=np.bool)
-        for constraint in self._constraints:
-            lower, upper = constraint
-            violation1 = violation1 + ma_utils.violates_constraint(self._positions1, upper, lower)
-            violation2 = violation2 + ma_utils.violates_constraint(self._positions2, upper, lower)
+            # reward = - np.sum(np.square(self._state)) - self._collision_penalty * collision
+            # reward = min(np.sum(-np.log(np.abs(self._state))), 100) + 1
+            #                 - self._collision_penalty * collision + done * 50
+            #          - NOT_DONE_PENALTY
+            # reward = - np.sum(np.sqrt(np.sum(np.square(self._state), axis=0))) - \
+            #          NOT_DONE_PENALTY
+            # FIXME(cathywu) correct norm wrt goal target
+            dist1 = np.linalg.norm(self._positions1 - self._goal1, axis=0)
+            dist2 = np.linalg.norm(self._positions2 - self._goal2, axis=0)
+            dist = np.concatenate([dist1, dist2])
+            if self._exit_when_done:
+                goal_reward = -dist * (1 - np.isnan(self._done)) + self._done_reward * np.isnan(self._done)
+            else:
+                goal_reward = -dist
 
-        reward = sum(goal_reward) - self._collision_penalty * (collision + sum(violation1) + sum(violation2))
-        self._reward = reward  # For plotting only
-        # if reward > -3:
-        #     self.plot(agent=0)
+            # Constraints violation rewards
+            violation1 = np.zeros(self.nagents, dtype=np.bool)
+            violation2 = np.zeros(self.nagents, dtype=np.bool)
+            for constraint in self._constraints:
+                lower, upper = constraint
+                violation1 = violation1 + ma_utils.violates_constraint(self._positions1, upper, lower)
+                violation2 = violation2 + ma_utils.violates_constraint(self._positions2, upper, lower)
 
-        next_observation = np.copy(self._state)
-        self._done[dist < self._done_epsilon] = np.nan
-        # logger.log('done: {}, collision: {}, reward: {}'.format(done,
-        #                                                         collision,
-        #                                                         reward))
+            reward = sum(goal_reward) - self._collision_penalty * (collision + sum(violation1) + sum(violation2))
+
+            next_observation = np.copy(self._state)
+            self._done[dist < self._done_epsilon] = np.nan
+            # logger.log('done: {}, collision: {}, reward: {}'.format(done,
+            #                                                         collision,
+            #                                                         reward))
+            total_reward += reward
+            self._reward = total_reward  # For plotting only
+            # if reward > -3:
+            #     self.plot(agent=0)
         return Step(observation=next_observation, reward=reward, done=done)
 
     def render(self):
@@ -186,3 +194,4 @@ class MultigoalEnv(MultiagentEnv):
             fname = 'data/visualization/lidar-%s-agent%s' % (str(self._iter).zfill(5), agent)
         plt.savefig(fname)
         plt.clf()
+        plt.close()

@@ -14,8 +14,9 @@ HIGH = 0.1
 
 
 class MultiagentPointEnv(MultiagentEnv):
-    def __init__(self, d=2, **kwargs):
+    def __init__(self, d=2, repeat=1, **kwargs):
         self.d = d
+        self._repeat = repeat
         super(MultiagentPointEnv, self).__init__(**kwargs)
 
     @property
@@ -44,44 +45,46 @@ class MultiagentPointEnv(MultiagentEnv):
 
     def step(self, action):
         self._iter += 1
-        # FIXME(cathywu) check reshaping
         action_mat = np.reshape(action, self.observation_space.shape)
         self._actions = action_mat  # For plotting only
-        if self._exit_when_done:
-            self._positions = self._positions + action_mat * np.tile(
-                (1 - np.isnan(self._done)), [self.d, 1])
-        else:
-            self._positions = self._positions + action_mat
-        self._state = self._positions  # fully observed
-        # self.plot(agent=0)
+        total_reward = 0
+        for i in range(self._repeat):
+            if self._exit_when_done:
+                self._positions = self._positions + action_mat * np.tile(
+                    (1 - np.isnan(self._done)), [self.d, 1])
+            else:
+                self._positions = self._positions + action_mat
+            self._state = self._positions  # fully observed
+            # self.plot(agent=0)
 
-        collision = multiagent_utils.is_collision(self._state, eps=self._collision_epsilon) if self._collisions else False
-        # done = collision
-        # done = np.all(np.abs(self._state) < 0.02)
-        # done = np.all(np.abs(self._state) < 0.01) or collision
-        done = False
+            collision = multiagent_utils.is_collision(self._state, eps=self._collision_epsilon) if self._collisions else False
+            # done = collision
+            # done = np.all(np.abs(self._state) < 0.02)
+            # done = np.all(np.abs(self._state) < 0.01) or collision
+            done = False
 
-        # reward = - np.sum(np.square(self._state)) - self._collision_penalty * collision
-        # reward = min(np.sum(-np.log(np.abs(self._state))), 100) + 1
-        #                 - self._collision_penalty * collision + done * 50
-        #          - NOT_DONE_PENALTY
-        # reward = - np.sum(np.sqrt(np.sum(np.square(self._state), axis=0))) - \
-        #          NOT_DONE_PENALTY
-        dist = np.linalg.norm(self._positions, axis=0)
-        if self._exit_when_done:
-            goal_reward = -dist * (1 - np.isnan(self._done)) + self._done_reward * np.isnan(self._done)
-        else:
-            goal_reward = -dist
-        reward = sum(goal_reward) - self._collision_penalty * collision
-        self._reward = reward  # For plotting only
-        # if reward > -3:
-        #     self.plot(agent=0)
+            # reward = - np.sum(np.square(self._state)) - self._collision_penalty * collision
+            # reward = min(np.sum(-np.log(np.abs(self._state))), 100) + 1
+            #                 - self._collision_penalty * collision + done * 50
+            #          - NOT_DONE_PENALTY
+            # reward = - np.sum(np.sqrt(np.sum(np.square(self._state), axis=0))) - \
+            #          NOT_DONE_PENALTY
+            dist = np.linalg.norm(self._positions, axis=0)
+            if self._exit_when_done:
+                goal_reward = -dist * (1 - np.isnan(self._done)) + self._done_reward * np.isnan(self._done)
+            else:
+                goal_reward = -dist
+            reward = sum(goal_reward) - self._collision_penalty * collision
 
-        next_observation = np.copy(self._state)
-        self._done[dist < self._done_epsilon] = np.nan
-        # logger.log('done: {}, collision: {}, reward: {}'.format(done,
-        #                                                         collision,
-        #                                                         reward))
+            next_observation = np.copy(self._state)
+            self._done[dist < self._done_epsilon] = np.nan
+            # logger.log('done: {}, collision: {}, reward: {}'.format(done,
+            #                                                         collision,
+            #                                                         reward))
+            total_reward += reward
+            self._reward = total_reward  # For plotting only
+            # if reward > -3:
+            #     self.plot(agent=0)
         return Step(observation=next_observation, reward=reward, done=done)
 
     def render(self):
@@ -138,9 +141,9 @@ class MultiagentPointEnv(MultiagentEnv):
 
         if tag is not None:
             fname = 'data/visualization/lidar-%s-%s-agent%s' % (
-                tag, self._iter, agent)
+                tag, str(self._iter).zfill(5), agent)
         else:
-            fname = 'data/visualization/lidar-%s-agent%s' % (self._iter, agent)
+            fname = 'data/visualization/lidar-%s-agent%s' % (str(self._iter).zfill(5), agent)
         plt.savefig(fname)
         plt.clf()
 

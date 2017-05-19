@@ -25,12 +25,12 @@ from rllab.misc.instrument import VariantGenerator, variant
 from rllab import config
 from rllab import config_personal
 
-debug = True
+debug = False
 
-exp_prefix = "cluster-multiagent-v19" if not debug \
+exp_prefix = "cluster-multiagent-v22" if not debug \
     else "cluster-multiagent-debug"
 mode = 'ec2' if not debug else 'local'  # 'local_docker', 'ec2', 'local'
-n_itr = 2000 if not debug else 2000
+n_itr = 2000 if not debug else 2
 holdout_factor = 0.0
 
 # Index among variants to start at
@@ -41,8 +41,8 @@ class VG(VariantGenerator):
     @variant
     def baseline(self):
         return [
-            "ActionDependentLinearFeatureBaseline",
             "LinearFeatureBaseline",
+            "ActionDependentLinearFeatureBaseline",
             # "ZeroBaseline",
             # "ActionDependentGaussianMLPBaseline",
             # "GaussianMLPBaseline",
@@ -50,9 +50,7 @@ class VG(VariantGenerator):
 
     @variant
     def k(self):
-        return [6, 50, 200, 500]  # [6, 50, 200, 500, 1000]
-        # 100,
-        # 1000]
+        return [6, 50, 200]  # , 500]  # [6, 50, 200, 500, 1000]
 
     @variant
     def d(self):
@@ -69,13 +67,17 @@ class VG(VariantGenerator):
     @variant
     def batch_size(self):
         return [
-            # 100 / (1.0-holdout_factor),
+            100 / (1.0-holdout_factor),
             # 500 / (1.0-holdout_factor),
-            # 1000 / (1.0-holdout_factor),
-            5000 / (1.0-holdout_factor),
+            1000 / (1.0-holdout_factor),
+            # 5000 / (1.0-holdout_factor),
             # 10000 / (1.0-holdout_factor),
             # 25000,
         ]
+
+    @variant
+    def corridor(self):
+        return [0.4]  # [0.2, 0.3, 0.4]
 
     @variant
     def done_epsilon(self):
@@ -94,8 +96,12 @@ class VG(VariantGenerator):
         return [10]  # [1000, 100]  # , 200, 100, 50]  # 10
 
     @variant
+    def repeat_action(self):
+        return [5]
+
+    @variant
     def max_path_length(self):
-        return [100]  # [50, 200, 1000]
+        return [10]  # [50, 200, 1000]
 
     @variant
     def step_size(self):
@@ -111,14 +117,18 @@ class VG(VariantGenerator):
 
     @variant
     def seed(self):
-        return [1, 11]  #, 21, 31, 41]  # 1, 21, 31, 41]
+        return [1, 11, 21, 31, 41]  # 1, 21, 31, 41]
+
+    @variant
+    def gae_lambda(self):
+        return [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.95, 0.97]
 
     @variant
     def env(self):
         return [
             # "OneStepNoStateEnv",
             # "NoStateEnv",
-            # "MultiagentPointEnv",
+            "MultiagentPointEnv",
             "MultigoalEnv",
             # "MultiactionPointEnv",
         ]
@@ -144,7 +154,8 @@ def gen_run_task(baseline_cls):
                  done_epsilon=vv['done_epsilon'],
                  done_reward=vv['done_reward'],
                  collision_epsilon=vv['collision_epsilon'],
-                 collision_penalty=vv['collision_penalty']), clip=5)))
+                 collision_penalty=vv['collision_penalty'],
+                 corridor=vv['corridor'], repeat=vv['repeat_action']), clip=5)))
 
         # exponential weighting normalization
         # env = TfEnv(normalize(MultiagentPointEnv(d=1, k=6),
@@ -193,7 +204,7 @@ def gen_run_task(baseline_cls):
             step_size=vv["step_size"],
             sample_backups=0,
             # optimizer=ConjugateGradientOptimizer(hvp_approach=FiniteDifferenceHvp(base_eps=1e-5))
-            gae_lambda=0.97,
+            gae_lambda=vv['gae_lambda'],
             # Uncomment both lines (this and the plot parameter below) to enable plotting
             # plot=True,
             center_adv=False,  # This disables whitening of advantages
