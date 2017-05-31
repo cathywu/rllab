@@ -28,9 +28,9 @@ from rllab.misc.instrument import VariantGenerator, variant
 from rllab import config
 from rllab import config_personal
 
-debug = False
+debug = True
 
-exp_prefix = "cluster-sudoku-v1" if not debug \
+exp_prefix = "cluster-sudoku-v2" if not debug \
     else "cluster-sudoku-debug"
 mode = 'ec2' if not debug else 'local'  # 'local_docker', 'ec2', 'local'
 n_itr = 2000 if not debug else 200
@@ -67,7 +67,7 @@ class VG(VariantGenerator):
     @variant
     def baseline(self):
         return [
-            "LinearFeatureBaseline",
+            # "LinearFeatureBaseline",
             "ActionDependentLinearFeatureBaseline",
             # "ZeroBaseline",
             # "ActionDependentGaussianMLPBaseline",
@@ -80,19 +80,22 @@ class VG(VariantGenerator):
 
     @variant
     def board(self):
+        return [mat_to_mask(arr[1][i]) for i in range(2)]
         # return [mat_to_mask(arr[0][i]) for i in range(20)] + \
         # [mat_to_mask(arr[1][i]) for i in range(20)]
 
         # return [(
         #   4, [[0, 1], [1, 3], [2, 0], [3, 2]], [2, 3, 1, 1], 1000),
         # ]
-        configs = [
-            [mat_to_mask(arr[0][i]) for i in range(16)],
-            [mat_to_mask(arr[0][i]) for i in range(16, 16 + 16)],
-            [mat_to_mask(arr[0][i]) for i in range(16 * 2, 16 * 2 + 16)],
-        ]
-        return [(4, [c[1] for c in config], [c[2] for c in config], 8000) for
-                config in configs]
+
+        # For multi sudoku env
+        # configs = [
+        #     [mat_to_mask(arr[0][i]) for i in range(16)],
+        #     [mat_to_mask(arr[0][i]) for i in range(16, 16 + 16)],
+        #     [mat_to_mask(arr[0][i]) for i in range(16 * 2, 16 * 2 + 16)],
+        # ]
+        # return [(4, [c[1] for c in config], [c[2] for c in config], 8000) for
+        #         config in configs]
 
         # [mat_to_mask(arr[1][i]) for i in range(20)]
         # return [
@@ -143,8 +146,8 @@ class VG(VariantGenerator):
             # "NoStateEnv",
             # "MultiagentPointEnv",
             # "MultigoalEnv",
-            "MultiSudokuEnv",
-            # "SudokuEnv",
+            # "MultiSudokuEnv",
+            "SudokuEnv",
             # "MultiactionPointEnv",
         ]
 

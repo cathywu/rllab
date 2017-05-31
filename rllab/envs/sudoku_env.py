@@ -28,14 +28,15 @@ class SudokuEnv(MultiagentEnv):
     def action_space(self):
         return Product(*[Discrete(self.d) for _ in range(self.d * self.d)])
 
-    def violations(self, board):
+    @staticmethod
+    def violations(board, size=4):
         """
         Counts the pairs of violations on the (self.d, self.d) board
         :param board:
         :return:
         """
         violations = 0
-        for i in range(self.d):
+        for i in range(size):
             # column-wise violations
             violations += len(
                 [x for x in itertools.combinations(board[:, i], r=2) if
@@ -45,13 +46,23 @@ class SudokuEnv(MultiagentEnv):
                 [x for x in itertools.combinations(board[i, :], r=2) if
                  x[0] == x[1]])
         # sub-square violations
-        dd = int(np.sqrt(self.d))
+        dd = int(np.sqrt(size))
         for i in range(dd):
             for j in range(dd):
                 violations += len([x for x in itertools.combinations(
                     board[i * dd:i * dd + dd, j * dd:j * dd + dd].flatten(),
                     r=2) if x[0] == x[1]])
         return violations
+
+    def score(self, board):
+        """
+        Counts the pairs of violations on the (self.d, self.d) board
+        :param board:
+        :return:
+        """
+        # Use pre-filled values
+        board[self._mask[:, 0], self._mask[:, 1]] = self._mask_values
+        return -self.violations(board, size=self.d)
 
     def reset(self):
         self._state = np.zeros((1, 1))
@@ -68,10 +79,8 @@ class SudokuEnv(MultiagentEnv):
 
         done = True
         board = np.reshape(action, [self.d, self.d])
-        # Use pre-filled values
-        board[self._mask[:, 0], self._mask[:, 1]] = self._mask_values
         # count pairs of violations
-        reward = -self.violations(board)
+        reward = self.score(board)
         # reward = np.exp(-0.1*self.violations(board))
         self.reward = reward  # For plotting only
         next_observation = np.copy(self._state)

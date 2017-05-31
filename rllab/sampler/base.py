@@ -6,6 +6,7 @@ from rllab.misc import tensor_utils
 from rllab.algos import util
 from rllab.baselines import util as bs_util
 import rllab.misc.logger as logger
+from rllab.envs.sudoku_env import SudokuEnv
 
 
 class Sampler(object):
@@ -84,7 +85,28 @@ class BaseSampler(Sampler):
         if hasattr(self.algo.baseline, "predict_n"):
             all_path_baselines = self.algo.baseline.predict_n(paths)
         else:
-            all_path_baselines = [self.algo.baseline.predict(path) for path in paths]
+            if self.action_dependent and isinstance(self.algo.env, SudokuEnv):
+                # Sudoku manual computation of AD baselines
+                all_path_baselines = []
+                d = self.algo.env.d
+                for path in paths:
+                    A = path['actions'].reshape((-1, d))
+                    board = np.where(A == 1)[1].reshape((d, d))
+                    # v0 = -SudokuEnv.violations(board)
+                    baseline = []
+                    for i in range(d):
+                        for j in range(d):
+                            B = np.copy(board)
+                            vs = []
+                            for k in range(d):
+                                B[i, j] = k
+                                vs.append(self.algo.env.score(B))
+                            # reward for average action
+                            baseline.append(np.mean(vs))
+                    all_path_baselines.append(np.expand_dims(np.array(baseline),
+                                                            axis=-1))
+            else:
+                all_path_baselines = [self.algo.baseline.predict(path) for path in paths]
 
         for idx, path in enumerate(paths):
             path_baseline, deltas = self.process_baselines(self.algo.baseline,
@@ -93,6 +115,8 @@ class BaseSampler(Sampler):
 
             path["advantages"] = special.discount_cumsum(
                 deltas, self.algo.discount * self.algo.gae_lambda)
+            # import ipdb
+            # ipdb.set_trace()
 
             path["returns"] = special.discount_cumsum(path["rewards"], self.algo.discount)
             returns.append(path["returns"])
@@ -154,10 +178,13 @@ class BaseSampler(Sampler):
 
 
         logger.log("fitting baseline...")
-        if hasattr(self.algo.baseline, 'fit_with_samples'):
-            self.algo.baseline.fit_with_samples(paths, samples_data)
+        if self.action_dependent and isinstance(self.algo.env, SudokuEnv):
+            pass
         else:
-            self.algo.baseline.fit(paths)
+            if hasattr(self.algo.baseline, 'fit_with_samples'):
+                self.algo.baseline.fit_with_samples(paths, samples_data)
+            else:
+                self.algo.baseline.fit(paths)
         logger.log("fitted")
 
         logger.record_tabular('Iteration', itr)

@@ -52,3 +52,6 @@ class NormalizeObs(Env):
 
     def render(self, *args, **kwargs):
         return self.env.render(*args, **kwargs)
+
+    def score(self, board):
+        return self.env.score(board)
