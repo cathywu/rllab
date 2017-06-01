@@ -24,7 +24,7 @@ def run_task(v):
         baseline=baseline,
         batch_size=4000,
         max_path_length=100,
-        n_itr=40,
+        n_itr=1,
         discount=0.99,
         step_size=v["step_size"],
         # Uncomment both lines (this and the plot parameter below) to enable plotting
@@ -46,6 +46,7 @@ for step_size in [0.01, 0.05, 0.1]:
             # will be used
             seed=seed,
             # mode="local",
+            # mode="local_docker",
             mode="ec2",
             variant=dict(step_size=step_size, seed=seed)
             # plot=True,

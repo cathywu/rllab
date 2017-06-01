@@ -25,10 +25,8 @@ USE_TF = True
 
 AWS_REGION_NAME = "us-west-1"
 
-if USE_GPU:
-    DOCKER_IMAGE = "dementrock/rllab3-shared-gpu"
-else:
-    DOCKER_IMAGE = "dementrock/rllab3-shared"
+DOCKER_IMAGE = "dementrock/rllab3:latest"  # TF 1.0
+# DOCKER_IMAGE = "evinitsky/cistar-rllab"  # CISTAR build
 
 DOCKER_LOG_DIR = "/tmp/expt"
 
@@ -87,7 +85,7 @@ FAST_CODE_SYNC_IGNORES = [
     ".idea",
     ".pods",
     "tests",
-    "examples",
+    # "examples",
     "docs",
     ".idea",
     ".DS_Store",
@@ -99,6 +97,7 @@ FAST_CODE_SYNC_IGNORES = [
     "scratch-notebooks",
     "conopt_root",
     "private/key_pairs",
+    "visualizer",
 ]
 
 FAST_CODE_SYNC = True
@@ -122,7 +121,7 @@ def setup_iam():
         if not query_yes_no(
                 "There is an existing role named rllab. Proceed to delete everything rllab-related and recreate?",
                 default="no"):
-            sys.exit()
+            return
         print("Listing instance profiles...")
         inst_profiles = existing_role.instance_profiles.all()
         for prof in inst_profiles:
@@ -216,6 +215,7 @@ def setup_s3():
         s3_client.create_bucket(
             ACL='private',
             Bucket=S3_BUCKET_NAME,
+            CreateBucketConfiguration={'LocationConstraint': 'us-west-1'},
         )
     except botocore.exceptions.ClientError as e:
         if e.response['Error']['Code'] == 'BucketAlreadyExists':
@@ -270,7 +270,7 @@ def setup_ec2():
                 raise e
         print("Security group created with id %s" % str(security_group.id))
 
-        key_name = 'rllab-%s' % region
+        key_name = 'rllabcistar-%s' % region
         try:
             print("Trying to create key pair with name %s" % key_name)
             key_pair = ec2_client.create_key_pair(KeyName=key_name)
