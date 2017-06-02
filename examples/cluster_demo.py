@@ -1,16 +1,18 @@
-from rllab.algos.trpo import TRPO
+from sandbox.rocky.tf.algos.trpo import TRPO
 from rllab.baselines.linear_feature_baseline import LinearFeatureBaseline
 from rllab.envs.box2d.cartpole_env import CartpoleEnv
+from sandbox.rocky.tf.envs.base import TfEnv
 from rllab.envs.normalized_env import normalize
 from rllab.misc.instrument import stub, run_experiment_lite
-from rllab.policies.gaussian_mlp_policy import GaussianMLPPolicy
+from sandbox.rocky.tf.policies.auto_mlp_policy import AutoMLPPolicy
 import sys
 
 
 def run_task(v):
-    env = normalize(CartpoleEnv())
+    env = TfEnv(normalize(CartpoleEnv()))
 
-    policy = GaussianMLPPolicy(
+    policy = AutoMLPPolicy(
+        name="policy",
         env_spec=env.spec,
         # The neural network policy should have two hidden layers, each with 32 hidden units.
         hidden_sizes=(32, 32)
@@ -46,8 +48,8 @@ for step_size in [0.01, 0.05, 0.1]:
             # will be used
             seed=seed,
             # mode="local",
-            # mode="local_docker",
-            mode="ec2",
+            mode="local_docker",
+            # mode="ec2",
             variant=dict(step_size=step_size, seed=seed)
             # plot=True,
             # terminate_machine=False,
