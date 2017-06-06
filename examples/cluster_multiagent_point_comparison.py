@@ -26,12 +26,12 @@ from rllab.misc.instrument import VariantGenerator, variant
 from rllab import config
 from rllab import config_personal
 
-debug = False
+debug = True
 
-exp_prefix = "cluster-multiagent-shared-v8" if not debug \
+exp_prefix = "cluster-multiagent-shared-v9" if not debug \
     else "cluster-multiagent-debug"
 mode = 'ec2' if not debug else 'local'  # 'local_docker', 'ec2', 'local'
-n_itr = 600 if not debug else 2
+n_itr = 600 if not debug else 600
 holdout_factor = 0.0  # 0.3
 
 # Index among variants to start at
@@ -67,11 +67,11 @@ class VG(VariantGenerator):
 
     @variant
     def k(self):
-        return [200] #, 50]  # , 200, 500]  # [6, 50, 200, 500, 1000]
+        return [25]  #, 50]  # , 200, 500]  # [6, 50, 200, 500, 1000]
 
     @variant
     def lidar_slices(self):
-        return [4, 6]  # [10]
+        return [10]  # [4, 6]  # [10]
 
     @variant
     def done_epsilon(self):
@@ -104,7 +104,7 @@ class VG(VariantGenerator):
             # 500 / (1.0-holdout_factor),
             # 1000 / (1.0-holdout_factor),
             5000 / (1.0-holdout_factor),
-            10000 / (1.0-holdout_factor),
+            # 10000 / (1.0-holdout_factor),
             # 25000 / (1.0-holdout_factor),
             # 25000,
         ]
@@ -127,7 +127,7 @@ class VG(VariantGenerator):
 
     @variant
     def seed(self):
-        return [1, 11, 21]  #, 31, 41]  # [1, 11, 21, 31, 41]
+        return [1]  # , 11, 21]  #, 31, 41]  # [1, 11, 21, 31, 41]
 
     @variant
     def env(self):
@@ -289,5 +289,5 @@ for i, v in enumerate(variants):
         # plot=True,
         # terminate_machine=False,
     )
-    if debug:
-        sys.exit()
+    # if debug:
+    #     sys.exit()

@@ -5,6 +5,7 @@ import numpy as np
 from rllab.envs.base import Env
 from sandbox.rocky.tf.spaces.box import Box
 from rllab.envs.base import Step
+from rllab.envs import multiagent_utils
 
 NOT_DONE_PENALTY = 1
 MAX_RANGE = 10
@@ -70,7 +71,7 @@ class MultiagentSharedEnv(Env):
         self._done = np.zeros(self.nagents)
         self._positions = np.random.uniform(0, 2*BOX,
                                             size=(self.nagents, self.d))
-        self._state = self.get_relative_positions()
+        self._state, self._neighbors = self.get_relative_positions()
         # For plotting only
         self._reward = -np.inf
         self._actions = np.zeros(self.action_space.shape)
@@ -91,12 +92,14 @@ class MultiagentSharedEnv(Env):
                 (1 - np.isnan(self._done)), [self.d, 1]).T
         else:
             self._positions = self._positions + action
-        self._state = self.get_relative_positions()
+        self._state, self._neighbors = self.get_relative_positions()
         # self.plot(agent=0)
 
-        collisions = np.min(self._state,
-                            axis=1) < self._collision_epsilon if self._collisions \
-            else np.array([False] * self.nagents)
+        collisions = multiagent_utils.is_collision(self._state, local=True,
+                                                   lidar=True,
+                                                   neighbors=self._neighbors,
+                                                   eps=self._collision_epsilon) \
+            if self._collisions else np.array([False] * self.nagents)
         done = False
 
         if self._exit_when_done:
@@ -151,12 +154,16 @@ class MultiagentSharedEnv(Env):
             dists += MAX_RANGE * done_mask
 
         lidar = MAX_RANGE * np.ones((self.nagents, self._slices))
+        neighbors = -1 * np.ones((self.nagents, self._slices))
         for i in range(self.nagents):
             for j in range(self._slices):
                 dvals = dists[i, bins[i, :] == j]
                 if len(dvals) > 0:
-                    lidar[i, j] = min(MAX_RANGE, np.min(dvals))
-        return lidar
+                    min_agent = np.argmin(dvals)
+                    lidar[i, j] = min(MAX_RANGE, dvals[min_agent])
+                    if lidar[i, j] != MAX_RANGE:
+                        neighbors[i, j] = min_agent
+        return lidar, neighbors
 
     def render(self):
         self.plot(tag="render")
