@@ -26,7 +26,7 @@ from rllab.misc.instrument import VariantGenerator, variant
 from rllab import config
 from rllab import config_personal
 
-debug = False
+debug = True
 
 exp_prefix = "cluster-multiagent-v26" if not debug \
     else "cluster-multiagent-debug"

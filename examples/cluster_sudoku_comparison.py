@@ -33,7 +33,7 @@ debug = True
 exp_prefix = "cluster-sudoku-v2" if not debug \
     else "cluster-sudoku-debug"
 mode = 'ec2' if not debug else 'local'  # 'local_docker', 'ec2', 'local'
-n_itr = 2000 if not debug else 200
+n_itr = 2000 if not debug else 2
 holdout_factor = 0.0
 
 # Index among variants to start at
