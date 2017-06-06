@@ -6,6 +6,8 @@ from sandbox.rocky.tf.policies.base import Policy
 import tensorflow as tf
 from sandbox.rocky.tf.samplers.batch_sampler import BatchSampler
 from sandbox.rocky.tf.samplers.vectorized_sampler import VectorizedSampler
+from sandbox.rocky.tf.spaces.box import Box
+from sandbox.rocky.tf.spaces.product import Product
 
 
 class BatchPolopt(RLAlgorithm):
@@ -36,6 +38,7 @@ class BatchPolopt(RLAlgorithm):
             sampler_cls=None,
             sampler_args=None,
             force_batch_sampler=False,
+            extra_baselines=None,
             **kwargs
     ):
         """
@@ -62,6 +65,7 @@ class BatchPolopt(RLAlgorithm):
         self.env = env
         self.policy = policy
         self.baseline = baseline
+        self.extra_baselines = extra_baselines
         self.scope = scope
         self.n_itr = n_itr
         self.start_itr = start_itr
@@ -83,6 +87,11 @@ class BatchPolopt(RLAlgorithm):
                 sampler_cls = BatchSampler
         if sampler_args is None:
             sampler_args = dict()
+        # FIXME(cathywu) hack to handle sudoku env and multiagent point envs
+        if isinstance(self.env.action_space, Product):
+            self.nactions = len(self.env.action_space.components)
+        elif isinstance(self.env.action_space, Box):
+            self.nactions = self.env.action_space.flat_dim
         self.sampler = sampler_cls(self, **sampler_args)
         self.init_opt()
 

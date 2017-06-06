@@ -44,6 +44,7 @@ class TfEnv(ProxyEnv):
         return EnvSpec(
             observation_space=self.observation_space,
             action_space=self.action_space,
+            horizon=self.horizon,
         )
 
     @property
@@ -57,6 +58,9 @@ class TfEnv(ProxyEnv):
     def wrap(cls, env_cls, **extra_kwargs):
         # Use a class wrapper rather than a lambda method for smoother serialization
         return WrappedCls(cls, env_cls, extra_kwargs)
+
+    def render(self, *args, **kwargs):
+        return self._wrapped_env.render(*args, **kwargs)
 
 
 class VecTfEnv(object):

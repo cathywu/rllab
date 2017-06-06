@@ -157,11 +157,13 @@ class GaussianMLPPolicy(StochasticPolicy, LayersPowered, Serializable):
 
     @overrides
     def get_action(self, observation):
-        flat_obs = self.observation_space.flatten(observation)
-        mean, log_std = [x[0] for x in self._f_dist([flat_obs])]
-        rnd = np.random.normal(size=mean.shape)
-        action = rnd * np.exp(log_std) + mean
-        return action, dict(mean=mean, log_std=log_std)
+        actions, agent_infos = self.get_actions([observation])
+        return actions[0], {k: v[0] for k, v in agent_infos.items()}
+        # flat_obs = self.observation_space.flatten(observation)
+        # mean, log_std = [x[0] for x in self._f_dist([flat_obs])]
+        # rnd = np.random.normal(size=mean.shape)
+        # action = rnd * np.exp(log_std) + mean
+        # return action, dict(mean=mean, log_std=log_std)
 
     def get_actions(self, observations):
         flat_obs = self.observation_space.flatten_n(observations)

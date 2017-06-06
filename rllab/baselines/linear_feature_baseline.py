@@ -1,43 +1,70 @@
-from rllab.baselines.base import Baseline
-from rllab.misc.overrides import overrides
 import numpy as np
+
+from sandbox.rocky.tf.baselines.base import Baseline
+from sandbox.rocky.tf.misc import space_utils
+from sandbox.rocky.tf.regressors.moving_target_regressor import MovingTargetRegressor
+from sandbox.rocky.tf.regressors.linear_regressor import LinearRegressor
 
 
 class LinearFeatureBaseline(Baseline):
-    def __init__(self, env_spec, reg_coeff=1e-5):
-        self._coeffs = None
-        self._reg_coeff = reg_coeff
+    def __init__(
+            self,
+            env_spec,
+            reg_coeff=1e-5,
+            mix_fraction=1.,
+            include_time=True,
+            action_dependent=False,
+            stride=1,
+            **kwargs
+    ):
+        self.observation_space = env_spec.observation_space
+        self.mix_fraction = mix_fraction
+        self.include_time = include_time
+        self.nactions = env_spec.action_space.flat_dim
+        self.action_dependent = action_dependent
+        self.stride = stride  # length of idx, if applicable
+        self.regressor = MovingTargetRegressor(
+            LinearRegressor(
+                input_size=self.feature_size,
+                output_size=1,
+                reg_coeff=reg_coeff,
+            ),
+            mix_fraction=mix_fraction
+        )
 
-    @overrides
-    def get_param_values(self, **tags):
-        return self._coeffs
-
-    @overrides
-    def set_param_values(self, val, **tags):
-        self._coeffs = val
-
-    def _features(self, path):
-        o = np.clip(path["observations"], -10, 10)
+    def get_features(self, path, idx=None):
+        obs = path["observations"]
+        o = np.clip(obs, -10, 10)
         l = len(path["rewards"])
-        al = np.arange(l).reshape(-1, 1) / 100.0
-        return np.concatenate([o, o ** 2, al, al ** 2, al ** 3, np.ones((l, 1))], axis=1)
+        feats = [o, o ** 2]
+        if idx is not None:
+            if not isinstance(idx, (list, range)):
+                idx = [idx]
+            minus_idx = [x for x in range(self.nactions) if x not in idx]
+            a = path["actions"][:, minus_idx]
+            feats.extend([a, a ** 2])
+        if self.include_time:
+            al = np.arange(l).reshape(-1, 1) / 100.0
+            feats.extend([al, al ** 2, al ** 3])
+        return np.concatenate(feats, axis=-1)
 
-    @overrides
-    def fit(self, paths):
-        featmat = np.concatenate([self._features(path) for path in paths])
+    @property
+    def feature_size(self):
+        obs_dim = space_utils.space_to_flat_dim(self.observation_space)
+        fsize = obs_dim * 2  # Is this 2 from obs + last_obs or o, o ** 2?
+        if self.include_time:
+            fsize += 3
+        if self.action_dependent:
+            fsize += (self.nactions - self.stride) * 2
+        return fsize
+
+    def fit(self, paths, idx=None):
+        # don't regress against the last value in each path
+        featmat = np.concatenate([self.get_features(path, idx=idx) for path
+                                  in paths])
         returns = np.concatenate([path["returns"] for path in paths])
-        reg_coeff = self._reg_coeff
-        for _ in range(5):
-            self._coeffs = np.linalg.lstsq(
-                featmat.T.dot(featmat) + reg_coeff * np.identity(featmat.shape[1]),
-                featmat.T.dot(returns)
-            )[0]
-            if not np.any(np.isnan(self._coeffs)):
-                break
-            reg_coeff *= 10
+        self.regressor.fit(featmat, returns.reshape((-1, 1)))
 
-    @overrides
-    def predict(self, path):
-        if self._coeffs is None:
-            return np.zeros(len(path["rewards"]))
-        return self._features(path).dot(self._coeffs)
+    def predict(self, path, idx=None):
+        feats = self.get_features(path, idx=idx)
+        return self.regressor.predict_n(feats)[..., 0]

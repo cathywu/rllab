@@ -66,7 +66,8 @@ KUBE_DEFAULT_NODE_SELECTOR = {
     "aws/type": "m4.xlarge",
 }
 
-MUJOCO_KEY_PATH = osp.expanduser("~/.mujoco")
+# MUJOCO_KEY_PATH = osp.expanduser("~/.mujoco")  # for local
+MUJOCO_KEY_PATH = "/Users/cathywu/Dropbox/PhD/DeepRL-Traffic/mujoco_linux"  # for docker / ec2
 # MUJOCO_KEY_PATH = osp.join(osp.dirname(__file__), "../vendor/mujoco")
 
 ENV = {}

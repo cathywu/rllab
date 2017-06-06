@@ -11,11 +11,38 @@ from functools import reduce
 sys.setrecursionlimit(50000)
 
 
+def flatten_list(x):
+    """
+    Flattens shallow list. Does NOT assume that all subitems are lists.
+    :param x: list of lists and singletons
+    :return: flattened list of singletons
+    """
+    return [xii for xi in x for xii in (xi if isinstance(xi, list) else [xi])]
+
+
+def single(xi, expand_dims=True):
+    """
+    Single out column vectors. Given a (n,k) array, return k columnwise
+    (n,)-shape arrays
+    :param xi: (n,k) array
+    :return: list of k (n,)-shaped arrays
+    """
+    if len(xi.shape) == 1:
+        return np.expand_dims(xi, axis=1) if expand_dims else xi
+    else:
+        if expand_dims:
+            return [np.expand_dims(xi[:,k], axis=1) for k in range(xi.shape[1])]
+        else:
+            return [xi[:,k] for k in range(xi.shape[1])]
+
+
 def extract(x, *keys):
     if isinstance(x, (dict, lazydict)):
-        return tuple(x[k] for k in keys)
+        return tuple(single(x[k.split('_single')[0]]) if len(k.split(
+                '_single')) > 1 else x[k] for k in keys)
     elif isinstance(x, list):
-        return tuple([xi[k] for xi in x] for k in keys)
+        return tuple([single(xi[k.split('_single')[0]]) if len(k.split(
+                '_single')) > 1 else xi[k] for xi in x] for k in keys)
     else:
         raise NotImplementedError
 

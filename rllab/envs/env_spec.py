@@ -7,7 +7,8 @@ class EnvSpec(Serializable):
     def __init__(
             self,
             observation_space,
-            action_space):
+            action_space,
+            horizon):
         """
         :type observation_space: Space
         :type action_space: Space
@@ -15,6 +16,7 @@ class EnvSpec(Serializable):
         Serializable.quick_init(self, locals())
         self._observation_space = observation_space
         self._action_space = action_space
+        self._horizon = horizon
 
     @property
     def observation_space(self):
@@ -23,3 +25,7 @@ class EnvSpec(Serializable):
     @property
     def action_space(self):
         return self._action_space
+
+    @property
+    def horizon(self):
+        return self._horizon

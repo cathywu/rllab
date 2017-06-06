@@ -11,7 +11,7 @@ class BatchSampler(BaseSampler):
         """
         :type algo: BatchPolopt
         """
-        self.algo = algo
+        super(BatchSampler, self).__init__(algo=algo)
 
     def start_worker(self):
         parallel_sampler.populate_task(self.algo.env, self.algo.policy, scope=self.algo.scope)

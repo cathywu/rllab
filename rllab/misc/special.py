@@ -48,15 +48,29 @@ def cat_perplexity(x):
     return np.exp(cat_entropy(x))
 
 
-def explained_variance_1d(ypred, y):
+def explained_variance_1d(ypred, y, epsilon=1e-11):
+    """
+    Explained variance (EV) captures the fraction of variance explained by
+    the baseline for the return. If there's little variance in the sampled
+    returns (this may happen in later phases of training, e.g.), EV = 1
+    indicates a constant baseline, whereas EV = 0 indicates a non-constant
+    baseline.
+
+    See [https://github.com/cathywu/rllab/issues/11]
+    :param ypred: baseline vector
+    :param y: returns vector
+    :param epsilon: small number to avoid division by zero
+    :return: fraction of variance in returns explained by baseline
+    """
     assert y.ndim == 1 and ypred.ndim == 1
     vary = np.var(y)
     if np.isclose(vary, 0):
+        # TODO(cathywu) why this distinction?
         if np.var(ypred) > 0:
             return 0
         else:
             return 1
-    return 1 - np.var(y - ypred) / (vary + 1e-8)
+    return 1 - np.var(y - ypred) / (vary + epsilon)
 
 
 def to_onehot(ind, dim):

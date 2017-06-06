@@ -43,3 +43,6 @@ class ProxyEnv(Env, Serializable):
 
     def set_param_values(self, params):
         self._wrapped_env.set_param_values(params)
+
+    def score(self, board):
+        return self._wrapped_env.score(board)

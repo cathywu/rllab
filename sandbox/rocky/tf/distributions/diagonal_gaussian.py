@@ -61,14 +61,21 @@ class DiagonalGaussian(Distribution):
         return tf.reduce_sum(
             numerator / denominator + new_log_stds - old_log_stds, axis=-1)
 
-    def likelihood_ratio_sym(self, x_var, old_dist_info_vars, new_dist_info_vars):
-        logli_new = self.log_likelihood_sym(x_var, new_dist_info_vars)
-        logli_old = self.log_likelihood_sym(x_var, old_dist_info_vars)
+    def likelihood_ratio_sym(self, x_var, old_dist_info_vars,
+                             new_dist_info_vars, idx=None):
+        logli_new = self.log_likelihood_sym(x_var, new_dist_info_vars, idx=idx)
+        logli_old = self.log_likelihood_sym(x_var, old_dist_info_vars, idx=idx)
+
         return tf.exp(logli_new - logli_old)
 
-    def log_likelihood_sym(self, x_var, dist_info_vars):
-        means = dist_info_vars["mean"]
-        log_stds = dist_info_vars["log_std"]
+    def log_likelihood_sym(self, x_var, dist_info_vars, idx=None):
+        if idx is not None:
+            x_var = tf.expand_dims(x_var[:, idx], axis=1)
+            means = tf.expand_dims(dist_info_vars["mean"][:, idx], axis=1)
+            log_stds = tf.expand_dims(dist_info_vars["log_std"][:, idx], axis=1)
+        else:
+            means = dist_info_vars["mean"]
+            log_stds = dist_info_vars["log_std"]
         zs = (x_var - means) / tf.exp(log_stds)
         return - tf.reduce_sum(log_stds, axis=-1) - \
                0.5 * tf.reduce_sum(tf.square(zs), axis=-1) - \
